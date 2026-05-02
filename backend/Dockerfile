@@ -11,10 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+# Build context = repo root (Railway uses railway.json → backend/Dockerfile from root).
+COPY backend/pyproject.toml ./
 RUN pip install --upgrade pip && pip install -e .
 
-COPY app ./app
+COPY backend/app ./app
 
 EXPOSE 8000
 
