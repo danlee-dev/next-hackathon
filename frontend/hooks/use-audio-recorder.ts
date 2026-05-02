@@ -9,6 +9,11 @@ export interface AudioChunkInfo {
   startMs: number;
 }
 
+/**
+ * MediaRecorder 5초 청크. onChunk 는 ref 로 보관해서 useEffect 재실행 트리거하지 X.
+ * (LiveSession 의 durationMs 의존 useCallback 이 매 tick 재생성돼 recorder 가
+ * 계속 재시작되던 버그 수정.)
+ */
 export function useAudioRecorder(
   enabled: boolean,
   onChunk: (blob: Blob, info: AudioChunkInfo) => void,
@@ -17,6 +22,9 @@ export function useAudioRecorder(
   const streamRef = useRef<MediaStream | null>(null);
   const indexRef = useRef(0);
   const startedAtRef = useRef(0);
+  const onChunkRef = useRef(onChunk);
+  onChunkRef.current = onChunk;
+
   const [state, setState] = useState<"idle" | "requesting" | "recording" | "stopped" | "error">(
     "idle",
   );
@@ -54,20 +62,25 @@ export function useAudioRecorder(
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) {
             const startMs = indexRef.current * CHUNK_MS;
-            onChunk(e.data, { index: indexRef.current, startMs });
+            onChunkRef.current(e.data, { index: indexRef.current, startMs });
             indexRef.current += 1;
           }
         };
         recorder.onerror = (e) => {
-          setError(`recorder error: ${(e as ErrorEvent).message}`);
+          const msg = (e as ErrorEvent).message || "unknown";
+          console.error("[recorder] error", msg);
+          setError(`recorder error: ${msg}`);
           setState("error");
         };
 
         recorder.start(CHUNK_MS);
         setState("recording");
+        console.info("[recorder] started", { mime, chunkMs: CHUNK_MS });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        setError(msg);
+        const name = e instanceof Error ? e.name : "Unknown";
+        console.error("[recorder] getUserMedia failed", name, msg);
+        setError(`${name}: ${msg}`);
         setState("error");
       }
     })();
@@ -75,13 +88,16 @@ export function useAudioRecorder(
     return () => {
       cancelled = true;
       try {
-        recorderRef.current?.state === "recording" && recorderRef.current?.stop();
+        if (recorderRef.current?.state === "recording") {
+          recorderRef.current.stop();
+        }
       } catch {}
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       setState("stopped");
     };
-  }, [enabled, onChunk]);
+    // *only* enabled — onChunk 변경에 재실행 X (ref 사용)
+  }, [enabled]);
 
   return { state, error };
 }
