@@ -23,12 +23,20 @@ async function authedFetch(input: string, init: RequestInit = {}) {
   return fetch(`${API}${input}`, { ...init, headers });
 }
 
-export async function createSession(title: string): Promise<CreateSessionRes> {
-  const res = await authedFetch("/api/v1/sessions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
-  });
+export interface SessionInput {
+  title: string;
+  script?: string;
+  judgingCriteria?: string;
+  deck?: File | null;
+}
+
+export async function createSession(input: SessionInput): Promise<CreateSessionRes> {
+  const fd = new FormData();
+  fd.set("title", input.title);
+  if (input.script) fd.set("script", input.script);
+  if (input.judgingCriteria) fd.set("judging_criteria", input.judgingCriteria);
+  if (input.deck) fd.set("deck", input.deck, input.deck.name);
+  const res = await authedFetch("/api/v1/sessions", { method: "POST", body: fd });
   if (!res.ok) throw new Error(`createSession failed: ${res.status}`);
   return res.json();
 }

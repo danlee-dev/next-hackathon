@@ -1,6 +1,8 @@
 """LangGraph orchestration for finalize endpoint.
 
 Fan-out: content + 3 judges in parallel; fan-in: action items.
+모든 노드는 사용자가 업로드한 IR 컨텍스트 (script + pitch deck text) 를
+시스템 프롬프트에 추가해서 평가의 정확도를 높인다.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ class AnalysisState(TypedDict, total=False):
     transcript: str
     audio_metrics: dict
     visual_metrics: dict
+    context: dict  # title, script, deck_text
     content_evaluation: dict
     judge_fact: dict
     judge_connect: dict
@@ -28,7 +31,10 @@ class AnalysisState(TypedDict, total=False):
 
 
 async def content_node(state: AnalysisState) -> dict:
-    eval_ = await analyze_content(state.get("transcript") or "")
+    eval_ = await analyze_content(
+        state.get("transcript") or "",
+        context=state.get("context") or {},
+    )
     return {"content_evaluation": eval_}
 
 
@@ -38,6 +44,7 @@ async def judge_fact_node(state: AnalysisState) -> dict:
             "judge-fact",
             state.get("transcript") or "",
             (state.get("audio_metrics") or {}) | (state.get("visual_metrics") or {}),
+            context=state.get("context") or {},
         )
     }
 
@@ -48,6 +55,7 @@ async def judge_connect_node(state: AnalysisState) -> dict:
             "judge-connect",
             state.get("transcript") or "",
             (state.get("audio_metrics") or {}) | (state.get("visual_metrics") or {}),
+            context=state.get("context") or {},
         )
     }
 
@@ -58,6 +66,7 @@ async def judge_critical_node(state: AnalysisState) -> dict:
             "judge-critical",
             state.get("transcript") or "",
             (state.get("audio_metrics") or {}) | (state.get("visual_metrics") or {}),
+            context=state.get("context") or {},
         )
     }
 
@@ -72,7 +81,7 @@ async def merge_node(state: AnalysisState) -> dict:
 
 
 def build_graph():
-    from langgraph.graph import StateGraph, END
+    from langgraph.graph import END, StateGraph
 
     g: StateGraph = StateGraph(AnalysisState)
     g.add_node("content", content_node)
@@ -103,7 +112,10 @@ def get_graph():
 
 
 async def run_analysis(
-    transcript: str, audio_metrics: dict, visual_metrics: dict
+    transcript: str,
+    audio_metrics: dict,
+    visual_metrics: dict,
+    context: dict | None = None,
 ) -> dict[str, Any]:
     graph = get_graph()
     result = await graph.ainvoke(
@@ -111,6 +123,7 @@ async def run_analysis(
             "transcript": transcript,
             "audio_metrics": audio_metrics,
             "visual_metrics": visual_metrics,
+            "context": context or {},
         }
     )
     return result

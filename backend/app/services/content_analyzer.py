@@ -47,19 +47,42 @@ JUDGE_PROMPTS: dict[str, str] = {
 }
 
 
-async def analyze_content(transcript: str) -> dict:
+def _format_context(context: dict | None) -> str:
+    """발표 사전 컨텍스트 (제목/대본/덱/심사기준)를 prompt 에 박을 문자열로."""
+    if not context:
+        return ""
+    title = (context.get("title") or "").strip()
+    script = (context.get("script") or "").strip()
+    deck = (context.get("deck_text") or "").strip()
+    criteria = (context.get("judging_criteria") or "").strip()
+    parts: list[str] = []
+    if title:
+        parts.append(f"세션 제목: {title}")
+    if script:
+        parts.append(f"발표자가 미리 제출한 대본:\n{script[:3000]}")
+    if deck:
+        parts.append(f"IR 피치 덱 텍스트 추출:\n{deck[:3000]}")
+    if criteria:
+        parts.append(f"심사 기준 (이 기준을 우선해서 평가하세요):\n{criteria[:1500]}")
+    if not parts:
+        return ""
+    return "\n\n=== 사전 컨텍스트 ===\n" + "\n\n".join(parts) + "\n=== 사전 컨텍스트 끝 ===\n"
+
+
+async def analyze_content(transcript: str, context: dict | None = None) -> dict:
     """Returns content rubric scores + empty_phrases_count."""
     fallback_empty = len(detect_empty_phrases(transcript))
     client = openai_client()
     if not client or not transcript.strip():
         return _content_fallback(transcript, fallback_empty)
+    ctx_str = _format_context(context)
     try:
         res = await client.chat.completions.create(
             model="gpt-4o-mini",
             response_format={"type": "json_object"},
             temperature=0.3,
             messages=[
-                {"role": "system", "content": CONTENT_RUBRIC},
+                {"role": "system", "content": CONTENT_RUBRIC + ctx_str},
                 {"role": "user", "content": transcript[:4000]},
             ],
         )
@@ -78,17 +101,23 @@ async def analyze_content(transcript: str) -> dict:
         return _content_fallback(transcript, fallback_empty)
 
 
-async def evaluate_judge(judge_id: str, transcript: str, metrics: dict) -> dict:
+async def evaluate_judge(
+    judge_id: str,
+    transcript: str,
+    metrics: dict,
+    context: dict | None = None,
+) -> dict:
     client = openai_client()
     if not client or not transcript.strip():
         return {"comment": _judge_fallback(judge_id, metrics)}
+    ctx_str = _format_context(context)
     try:
         res = await client.chat.completions.create(
             model="gpt-4o-mini",
             response_format={"type": "json_object"},
             temperature=0.6,
             messages=[
-                {"role": "system", "content": JUDGE_PROMPTS[judge_id]},
+                {"role": "system", "content": JUDGE_PROMPTS[judge_id] + ctx_str},
                 {
                     "role": "user",
                     "content": (
@@ -117,11 +146,16 @@ async def generate_action_items(state: dict[str, Any]) -> dict:
         "- actions: 다음 발표를 위한 구체적 액션 3개 (실행 가능한 동사로 시작)\n"
         "JSON: {\"strengths\": [...], \"weaknesses\": [...], \"actions\": [...]}"
     )
+    ctx = state.get("context") or {}
     payload = {
         "transcript": (state.get("transcript") or "")[:3000],
         "audio_metrics": state.get("audio_metrics") or {},
         "visual_metrics": state.get("visual_metrics") or {},
         "content_evaluation": state.get("content_evaluation") or {},
+        "session_title": ctx.get("title", ""),
+        "submitted_script": (ctx.get("script") or "")[:1500],
+        "deck_text": (ctx.get("deck_text") or "")[:1500],
+        "judging_criteria": (ctx.get("judging_criteria") or "")[:1000],
     }
     try:
         res = await client.chat.completions.create(

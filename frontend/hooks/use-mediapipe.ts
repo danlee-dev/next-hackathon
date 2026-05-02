@@ -16,6 +16,32 @@ export interface MediaPipeFrame {
 }
 
 const VISION_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm";
+
+/**
+ * MediaPipe TFLite XNNPACK 초기화 INFO 메시지가 Next dev 오버레이에 잡힘.
+ * 정상 동작 신호인데 사용자에겐 에러처럼 보임 → 한 번만 wrapper 설치.
+ */
+let mpLogPatched = false;
+function patchMpLog() {
+  if (mpLogPatched || typeof window === "undefined") return;
+  mpLogPatched = true;
+  const origInfo = console.info;
+  const origLog = console.log;
+  const filter = (msg: unknown) =>
+    typeof msg === "string" &&
+    (msg.startsWith("INFO:") ||
+      msg.includes("TensorFlow Lite") ||
+      msg.includes("XNNPACK") ||
+      msg.includes("Created delegate"));
+  console.info = (...args: unknown[]) => {
+    if (filter(args[0])) return;
+    origInfo.apply(console, args as []);
+  };
+  console.log = (...args: unknown[]) => {
+    if (filter(args[0])) return;
+    origLog.apply(console, args as []);
+  };
+}
 const FACE_MODEL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 const POSE_MODEL =
@@ -32,6 +58,7 @@ export function useMediaPipe(videoRef: React.RefObject<HTMLVideoElement | null>,
 
   useEffect(() => {
     if (!enabled) return;
+    patchMpLog();
     let cancelled = false;
     (async () => {
       try {

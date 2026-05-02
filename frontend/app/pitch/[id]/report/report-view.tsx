@@ -2,16 +2,11 @@
 
 import { RadarScore } from "@/components/report/radar-chart";
 import { TimelineChart } from "@/components/report/timeline-chart";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTrustStore } from "@/hooks/use-trust-store";
 import { fetchReport } from "@/lib/api-client";
 import { generateDemoTimeline } from "@/lib/demo-simulator";
 import { JUDGES } from "@/lib/judges/definitions";
-import { trustColor, trustLabel } from "@/lib/utils";
 import type { FinalReport } from "@/types/pitch";
-import { ArrowRight, Repeat } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -28,7 +23,6 @@ export function ReportView({ sessionId, demoMode = false }: Props) {
 
   useEffect(() => {
     if (demoMode) {
-      // synthesize a polished demo report immediately
       setReport({
         session_id: sessionId,
         trust_score: 78,
@@ -74,7 +68,6 @@ export function ReportView({ sessionId, demoMode = false }: Props) {
         }),
       )
       .catch(() => {
-        // fallback: synth report from local store
         setReport({
           session_id: sessionId,
           trust_score: store.scores.trust || 70,
@@ -92,95 +85,112 @@ export function ReportView({ sessionId, demoMode = false }: Props) {
         });
       })
       .finally(() => setLoading(false));
-  }, [sessionId, store]);
+  }, [sessionId, store, demoMode]);
 
   if (loading || !report) {
     return (
-      <main className="grid min-h-dvh place-items-center text-sm text-muted-foreground">
-        분석 결과를 불러오는 중...
+      <main className="grid min-h-dvh place-items-center bg-black">
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/40">
+          분석 결과를 불러오는 중...
+        </span>
       </main>
     );
   }
 
-  const c = trustColor(report.trust_score);
+  const label = trustLabelEn(report.trust_score);
 
   return (
-    <main className="min-h-dvh">
-      <header className="border-b border-border-faint">
+    <main className="min-h-dvh bg-black text-white">
+      <header className="border-b border-white/8">
         <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between px-6">
           <Link
             href="/dashboard"
-            className="font-mono text-xs text-muted-foreground hover:text-foreground"
+            className="font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/55 transition-colors hover:text-white"
           >
-            ← 대시보드
+            ← Dashboard
           </Link>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/pitch/new">
-                <Repeat className="size-3.5" /> 다시 발표
-              </Link>
-            </Button>
-          </div>
+          <Link
+            href="/pitch/new"
+            className="group inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-[12px] font-semibold text-black transition-transform hover:scale-[1.04]"
+          >
+            다시 발표
+            <span className="transition-transform group-hover:translate-x-0.5">→</span>
+          </Link>
         </div>
       </header>
 
-      <section className="mx-auto max-w-[1100px] px-6 py-12">
+      <section className="mx-auto max-w-[1100px] px-6 py-16">
         <motion.div
           initial={{ y: 12, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className="grid gap-8 lg:grid-cols-[280px_1fr] lg:items-end"
+          className="grid gap-10 lg:grid-cols-[1fr_360px] lg:items-end"
         >
           <div>
-            <Badge variant="primary">FINAL REPORT</Badge>
-            <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+            <div className="font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/45">
+              Final report · 01
+            </div>
+            <h1
+              className="mt-3 text-balance font-medium leading-[1.04]"
+              style={{ fontSize: "clamp(36px, 5vw, 64px)", letterSpacing: "-0.024em" }}
+            >
               발표 분석 결과
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              세션 ID: <span className="font-mono">{sessionId.slice(0, 8)}</span>
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.24em] text-white/35">
+              Session · {sessionId.slice(0, 8)}
             </p>
           </div>
-          <div className="rounded-md border border-border-faint bg-surface-1 px-6 py-5">
+          <div className="rounded-2xl border border-white/10 bg-black px-6 py-5">
             <div className="flex items-baseline justify-between">
-              <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                신뢰 점수
+              <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
+                Trust score
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: c }}>
-                {trustLabel(report.trust_score)}
+              <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/55">
+                {label}
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="font-mono text-6xl font-semibold tabular-nums" style={{ color: c }}>
+              <span className="font-mono text-[64px] font-medium leading-none tabular-nums text-white">
                 {Math.round(report.trust_score)}
               </span>
-              <span className="font-mono text-2xl text-subtle-foreground">/100</span>
+              <span className="font-mono text-[20px] text-white/30">/100</span>
+            </div>
+            <div className="mt-4 h-[2px] w-full overflow-hidden rounded-full bg-white/8">
+              <div
+                className="h-full bg-white"
+                style={{ width: `${Math.round(report.trust_score)}%` }}
+              />
             </div>
           </div>
         </motion.div>
 
         <Section title="시간축 신뢰도" delay={0.05}>
-          <TimelineChart
-            data={
-              store.timeline.length > 0
-                ? store.timeline
-                : demoMode
-                  ? generateDemoTimeline(60_000)
-                  : Array.from({ length: 12 }).map((_, i) => ({
-                      ts_ms: i * 5000,
-                      trust: Math.max(40, report.trust_score + Math.sin(i / 2) * 12),
-                    }))
-            }
-          />
+          <div className="rounded-2xl border border-white/8 bg-black p-4">
+            <TimelineChart
+              data={
+                store.timeline.length > 0
+                  ? store.timeline
+                  : demoMode
+                    ? generateDemoTimeline(60_000)
+                    : Array.from({ length: 12 }).map((_, i) => ({
+                        ts_ms: i * 5000,
+                        trust: Math.max(40, report.trust_score + Math.sin(i / 2) * 12),
+                      }))
+              }
+            />
+          </div>
         </Section>
 
         <Section title="4축 분석" delay={0.1}>
           <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-            <RadarScore
-              visual={report.visual_score}
-              audio={report.audio_score}
-              content={report.content_score}
-              consistency={(report.visual_score + report.audio_score) / 2}
-            />
+            <div className="rounded-2xl border border-white/8 bg-black p-5">
+              <RadarScore
+                visual={report.visual_score}
+                audio={report.audio_score}
+                content={report.content_score}
+                consistency={(report.visual_score + report.audio_score) / 2}
+              />
+            </div>
             <div className="grid gap-3">
               <ScoreRow label="시각 신뢰" value={report.visual_score} />
               <ScoreRow label="음성 신뢰" value={report.audio_score} />
@@ -191,80 +201,54 @@ export function ReportView({ sessionId, demoMode = false }: Props) {
 
         <Section title="심사위원 한 줄평" delay={0.15}>
           <div className="grid gap-3 lg:grid-cols-3">
-            {JUDGES.map((j) => (
-              <Card key={j.id} className="border-l-2" style={{ borderLeftColor: j.accentVar }}>
-                <CardHeader>
-                  <CardTitle>{j.nameKo}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed">{report.judge_summaries[j.id]}</p>
-                </CardContent>
-              </Card>
+            {JUDGES.map((j, i) => (
+              <div key={j.id} className="rounded-2xl border border-white/8 bg-black p-5">
+                <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
+                  0{i + 1} · {j.nameEn}
+                </div>
+                <div className="mt-1 text-[15px] font-medium">{j.nameKo}</div>
+                <div className="mt-3 border-l border-white pl-3 text-[14px] leading-[1.5] text-white/85">
+                  "{report.judge_summaries[j.id]}"
+                </div>
+              </div>
             ))}
           </div>
         </Section>
 
         <Section title="강점 / 약점" delay={0.2}>
           <div className="grid gap-3 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>강점</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-1.5 text-sm">
-                  {report.strengths.map((s, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="text-trust-high">＋</span>
-                      <span>{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>약점</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-1.5 text-sm">
-                  {report.weaknesses.map((s, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="text-trust-low">－</span>
-                      <span>{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            <SectionList title="강점" items={report.strengths} marker="+" />
+            <SectionList title="약점" items={report.weaknesses} marker="−" muted />
           </div>
         </Section>
 
         <Section title="액션 아이템" delay={0.25}>
-          <Card>
-            <CardContent className="pt-4">
-              <ol className="space-y-3 text-sm">
-                {report.action_items.map((a, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="font-mono text-xs text-subtle-foreground tabular-nums w-5 pt-0.5">
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <span className="leading-relaxed">{a}</span>
-                  </li>
-                ))}
-              </ol>
-            </CardContent>
-          </Card>
+          <ol className="overflow-hidden rounded-2xl border border-white/8">
+            {report.action_items.map((a, i) => (
+              <li
+                key={i}
+                className={`flex items-start gap-4 px-5 py-4 ${i > 0 ? "border-t border-white/8" : ""}`}
+              >
+                <span className="font-mono text-[10.5px] tabular-nums uppercase tracking-[0.32em] text-white/45">
+                  0{i + 1}
+                </span>
+                <span className="text-[14.5px] leading-[1.55]">{a}</span>
+              </li>
+            ))}
+          </ol>
         </Section>
 
-        <div className="mt-12 flex items-center justify-between border-t border-border-faint pt-6">
-          <p className="text-xs text-subtle-foreground font-mono">
-            세션이 본인 계정에 저장되었습니다.
+        <div className="mt-16 flex items-center justify-between border-t border-white/8 pt-6">
+          <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/40">
+            세션이 본인 계정에 저장되었습니다
           </p>
-          <Button asChild>
-            <Link href="/pitch/new">
-              다시 한 번 발표 <ArrowRight className="size-4" />
-            </Link>
-          </Button>
+          <Link
+            href="/pitch/new"
+            className="group inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-[13px] font-semibold text-black transition-transform hover:scale-[1.04]"
+          >
+            다시 한 번 발표
+            <span className="transition-transform group-hover:translate-x-0.5">→</span>
+          </Link>
         </div>
       </section>
     </main>
@@ -282,12 +266,12 @@ function Section({
 }) {
   return (
     <motion.section
-      initial={{ y: 20, opacity: 0 }}
+      initial={{ y: 18, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3, delay }}
-      className="mt-10"
+      className="mt-12"
     >
-      <h2 className="mb-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <h2 className="mb-4 font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
         {title}
       </h2>
       {children}
@@ -296,23 +280,58 @@ function Section({
 }
 
 function ScoreRow({ label, value }: { label: string; value: number }) {
-  const c = trustColor(value);
+  const v = Math.round(value);
+  const isLow = v < 45;
   return (
-    <div className="rounded-md border border-border-faint bg-surface-1 px-4 py-3">
+    <div className="rounded-2xl border border-white/8 bg-black px-5 py-4">
       <div className="flex items-baseline justify-between">
-        <span className="text-sm">{label}</span>
-        <span className="font-mono text-2xl font-semibold tabular-nums" style={{ color: c }}>
-          {Math.round(value)}
+        <span className="text-[14px]">{label}</span>
+        <span
+          className={`font-mono text-[28px] font-medium tabular-nums ${isLow ? "text-white/55" : "text-white"}`}
+        >
+          {v}
         </span>
       </div>
-      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-border-faint">
-        <div
-          className="h-full rounded-full transition-[width] duration-500"
-          style={{ width: `${Math.round(value)}%`, background: c }}
-        />
+      <div className="mt-3 h-[2px] w-full overflow-hidden rounded-full bg-white/8">
+        <div className="h-full bg-white" style={{ width: `${v}%`, opacity: isLow ? 0.45 : 0.9 }} />
       </div>
     </div>
   );
+}
+
+function SectionList({
+  title,
+  items,
+  marker,
+  muted,
+}: {
+  title: string;
+  items: string[];
+  marker: string;
+  muted?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/8 bg-black p-5">
+      <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">{title}</div>
+      <ul className="mt-3 space-y-2 text-[14px] leading-[1.55]">
+        {items.map((s, i) => (
+          <li key={i} className="flex gap-3">
+            <span className={`font-mono ${muted ? "text-white/40" : "text-white/85"}`}>
+              {marker}
+            </span>
+            <span className={muted ? "text-white/75" : "text-white"}>{s}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function trustLabelEn(score: number): string {
+  if (score >= 80) return "Strong";
+  if (score >= 65) return "Stable";
+  if (score >= 45) return "Caution";
+  return "Risk";
 }
 
 function deriveStrengths(s: ReturnType<typeof useTrustStore.getState>) {

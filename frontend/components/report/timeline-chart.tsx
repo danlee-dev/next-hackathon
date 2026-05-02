@@ -22,41 +22,42 @@ export function TimelineChart({ data }: Props) {
         <AreaChart data={formatted} margin={{ top: 10, right: 10, left: -16, bottom: 0 }}>
           <defs>
             <linearGradient id="trustFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="oklch(0.74 0.15 195)" stopOpacity={0.5} />
-              <stop offset="100%" stopColor="oklch(0.74 0.15 195)" stopOpacity={0} />
+              <stop offset="0%" stopColor="rgba(255,255,255,0.5)" stopOpacity={0.45} />
+              <stop offset="100%" stopColor="rgba(255,255,255,0.5)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis
             dataKey="t"
             tickFormatter={(v) => `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}`}
-            tick={{ fill: "var(--muted-foreground)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+            tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10, fontFamily: "var(--font-mono)" }}
             tickLine={false}
-            axisLine={{ stroke: "var(--border-faint)" }}
+            axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
             interval="preserveStartEnd"
             minTickGap={42}
           />
           <YAxis
             domain={[0, 100]}
             ticks={[0, 25, 50, 75, 100]}
-            tick={{ fill: "var(--muted-foreground)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+            tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10, fontFamily: "var(--font-mono)" }}
             tickLine={false}
-            axisLine={{ stroke: "var(--border-faint)" }}
+            axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
             width={40}
           />
           <Tooltip
             contentStyle={{
-              background: "var(--surface-2)",
-              border: "1px solid var(--border)",
+              background: "#0a0a0c",
+              border: "1px solid rgba(255,255,255,0.12)",
               borderRadius: 6,
               fontSize: 12,
+              color: "white",
             }}
-            labelStyle={{ color: "var(--muted-foreground)" }}
+            labelStyle={{ color: "rgba(255,255,255,0.55)" }}
             formatter={(v: number) => [`${v}`, "Trust"]}
           />
           <Area
             type="monotone"
             dataKey="trust"
-            stroke="oklch(0.74 0.15 195)"
+            stroke="rgba(255,255,255,0.85)"
             strokeWidth={1.5}
             fill="url(#trustFill)"
           />

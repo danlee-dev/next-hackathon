@@ -578,9 +578,9 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
           </div>
           <TrustScoreCard trust={scores.trust} />
           <div className="grid grid-cols-3 gap-2">
-            <MiniScore label="시각" value={scores.visual} />
-            <MiniScore label="음성" value={scores.audio} />
-            <MiniScore label="논리" value={scores.content} />
+            <MiniScore label="시각" value={scores.visual} live />
+            <MiniScore label="음성" value={scores.audio} live />
+            <MiniScore label="논리" value={null} hint="발표 종료 후" />
           </div>
           <MetricsPanel
             rows={[
@@ -718,16 +718,41 @@ function DemoCanvas() {
   );
 }
 
-function MiniScore({ label, value }: { label: string; value: number }) {
-  const isLow = value < 45;
+function MiniScore({
+  label,
+  value,
+  live,
+  hint,
+}: {
+  label: string;
+  value: number | null;
+  live?: boolean;
+  hint?: string;
+}) {
+  const isPending = value === null;
+  const isLow = !isPending && (value as number) < 45;
   return (
     <div className="rounded-2xl border border-white/8 bg-black px-4 py-3">
-      <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">{label}</div>
-      <div
-        className={`mt-1 font-mono text-[24px] font-medium tabular-nums ${isLow ? "text-white/55" : "text-white"}`}
-      >
-        {Math.round(value)}
+      <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
+        <span>{label}</span>
+        {live ? <span className="text-white/35">live</span> : null}
       </div>
+      {isPending ? (
+        <div className="mt-1 flex flex-col gap-0.5">
+          <span className="font-mono text-[24px] font-medium tabular-nums text-white/30">—</span>
+          {hint ? (
+            <span className="font-mono text-[9px] uppercase tracking-[0.28em] text-white/35">
+              {hint}
+            </span>
+          ) : null}
+        </div>
+      ) : (
+        <div
+          className={`mt-1 font-mono text-[24px] font-medium tabular-nums ${isLow ? "text-white/55" : "text-white"}`}
+        >
+          {Math.round(value as number)}
+        </div>
+      )}
     </div>
   );
 }
