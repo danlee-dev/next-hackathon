@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+import asyncio
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 
 from app.agents.graph import run_analysis
 from app.core.supabase import (
@@ -21,6 +24,9 @@ from app.models.schemas import (
 )
 from app.services.pdf_extract import extract_pdf_text
 from app.services.scoring import all_scores
+from app.services.web_research import fact_check_pitch
+
+logger = logging.getLogger("trustpitch")
 
 router = APIRouter()
 
@@ -53,8 +59,25 @@ def session_state(session_id: str) -> dict:
     return s
 
 
+async def _prefetch_research(session_id: str, transcript_seed: str, deck_text: str) -> None:
+    """배경에서 Tavily 로 사전 시장 검증. 발표 시작 *전*에 김팩트가 이미 알고 있도록.
+    실제 VC 가 미팅 전 30분 시장 조사하는 행동 모방.
+    """
+    try:
+        research = await fact_check_pitch(transcript_seed, deck_text)
+        s = _SESSION_STATE.get(session_id)
+        if s is not None:
+            s["pre_research"] = research
+            logger.info(
+                "pre-research done for %s — %d claims", session_id, len(research.get("claims", []))
+            )
+    except Exception as e:
+        logger.warning("pre-research failed for %s: %s", session_id, e)
+
+
 @router.post("/sessions", response_model=CreateSessionRes)
 async def create_session(
+    background_tasks: BackgroundTasks,
     title: str = Form("제목 없는 피칭"),
     script: Optional[str] = Form(None),
     judging_criteria: Optional[str] = Form(None),
@@ -83,17 +106,20 @@ async def create_session(
         sid = str(uuid4())
         s = session_state(sid)
         s["context"] = ctx
-        return CreateSessionRes(
-            session_id=sid,
-            started_at=datetime.now(timezone.utc).isoformat(),
-        )
-    sid = row["id"]
-    s = session_state(sid)
-    s["context"] = ctx
-    return CreateSessionRes(
-        session_id=sid,
-        started_at=row.get("started_at") or datetime.now(timezone.utc).isoformat(),
-    )
+    else:
+        sid = row["id"]
+        s = session_state(sid)
+        s["context"] = ctx
+
+    # 발표 시작 *전*에 시장·경쟁사 사전 리서치 (Tavily). script 또는 deck 이 있으면.
+    seed = (script or "") + "\n" + deck_text
+    if seed.strip():
+        background_tasks.add_task(_prefetch_research, sid, seed, deck_text)
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    if row is not None:
+        started_at = row.get("started_at") or started_at
+    return CreateSessionRes(session_id=sid, started_at=started_at)
 
 
 @router.post("/sessions/{session_id}/finalize", response_model=FinalizeRes)

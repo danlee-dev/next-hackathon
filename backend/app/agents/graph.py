@@ -53,6 +53,18 @@ async def gate_node(state: AnalysisState) -> dict:
 async def research_node(state: AnalysisState) -> dict:
     if state.get("insufficient_input"):
         return {"research": {"claims": [], "summary": "skipped (insufficient input)"}}
+    # 사전 리서치 (session 생성 시 background 로 돌린 결과) 가 있으면 우선 활용.
+    pre = (state.get("context") or {}).get("pre_research")
+    if pre and pre.get("claims"):
+        # 발표 끝난 후 *추가* fact-check — 발표 중 새로 등장한 주장만.
+        transcript = state.get("transcript") or ""
+        deck = (state.get("context") or {}).get("deck_text", "")
+        post = await fact_check_pitch(transcript, deck)
+        merged = {
+            "claims": (pre.get("claims", []) + post.get("claims", []))[:6],
+            "summary": f"pre-research {len(pre.get('claims', []))} + post {len(post.get('claims', []))}",
+        }
+        return {"research": merged}
     transcript = state.get("transcript") or ""
     deck = (state.get("context") or {}).get("deck_text", "")
     research = await fact_check_pitch(transcript, deck)
