@@ -1,9 +1,7 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { AppShell } from "@/components/landing/landing-shell";
 import { createClient } from "@/lib/supabase/client";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -26,30 +24,40 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-dvh">
-      <header className="border-b border-border-faint">
-        <div className="mx-auto flex h-14 max-w-[700px] items-center justify-between px-6">
-          <Link href="/dashboard" className="font-mono text-sm">
-            ← 대시보드
-          </Link>
-          <span className="text-sm text-muted-foreground">설정</span>
-        </div>
-      </header>
-      <section className="mx-auto max-w-[700px] px-6 py-12">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">계정 설정</h1>
-        <div className="mt-8 flex flex-col gap-4">
-          <div className="flex items-center justify-between rounded-md border border-border-faint bg-surface-1 px-5 py-4">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">이메일</div>
-              <div className="font-mono text-sm">{email ?? "—"}</div>
+    <AppShell active="settings">
+      <div className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/45">
+        Account · 01
+      </div>
+      <h1
+        className="mb-12 text-balance font-medium leading-[1.04]"
+        style={{ fontSize: "clamp(36px, 4.6vw, 64px)", letterSpacing: "-0.024em" }}
+      >
+        계정 설정
+      </h1>
+
+      <div className="overflow-hidden rounded-2xl border border-white/8">
+        <div className="flex items-center justify-between px-6 py-5">
+          <div>
+            <div className="font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/45">
+              Email
             </div>
-            <Badge variant="primary">SIGNED IN</Badge>
+            <div className="mt-1.5 text-[14.5px] text-white">{email ?? "—"}</div>
           </div>
-          <Button onClick={signOut} variant="destructive">
-            로그아웃
-          </Button>
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/55">
+            Signed in
+          </span>
         </div>
-      </section>
-    </main>
+      </div>
+
+      <div className="mt-6">
+        <button
+          type="button"
+          onClick={signOut}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-white/15 px-5 text-[13.5px] text-white transition-colors hover:border-white/35 hover:bg-white/[0.04]"
+        >
+          로그아웃
+        </button>
+      </div>
+    </AppShell>
   );
 }

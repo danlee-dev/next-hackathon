@@ -6,8 +6,6 @@ import { LiveTranscript } from "@/components/pitch/live-transcript";
 import { MetricsPanel } from "@/components/pitch/metrics-panel";
 import { TrustScoreCard } from "@/components/pitch/trust-score-card";
 import { WebcamCanvas } from "@/components/pitch/webcam-canvas";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useAudioLevel } from "@/hooks/use-audio-level";
 import { type AudioChunkInfo, useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useMediaPipe } from "@/hooks/use-mediapipe";
@@ -29,8 +27,7 @@ import { DemoSimulator } from "@/lib/demo-simulator";
 import { JUDGES } from "@/lib/judges/definitions";
 import { evaluateAllJudges } from "@/lib/judges/trigger-engine";
 import { computeAll } from "@/lib/score";
-import { formatDuration, trustColor } from "@/lib/utils";
-import { Pause, Play, Sparkles, Square } from "lucide-react";
+import { formatDuration } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -452,64 +449,64 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
   const ambient = demoMode ? demoLevel : audioLevel;
 
   return (
-    <main className="relative h-dvh overflow-hidden bg-background text-foreground">
+    <main className="relative h-dvh overflow-hidden bg-black text-white">
       {/* topbar */}
-      <header className="absolute inset-x-0 top-0 z-20 flex h-12 items-center justify-between border-b border-border-faint bg-background/80 backdrop-blur-md px-4">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="absolute inset-x-0 top-0 z-20 flex h-12 items-center justify-between border-b border-white/8 bg-black/85 backdrop-blur-md px-5">
+        <div className="flex min-w-0 items-center gap-4">
           <Link
             href="/dashboard"
-            className="font-mono text-xs text-muted-foreground hover:text-foreground"
+            className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55 transition-colors hover:text-white"
           >
             ←
           </Link>
-          <span className="font-mono text-xs text-subtle-foreground hidden sm:inline">세션</span>
-          <span className="text-sm font-medium truncate">{title}</span>
+          <span className="hidden font-mono text-[10px] uppercase tracking-[0.32em] text-white/40 sm:inline">
+            Session
+          </span>
+          <span className="truncate text-[13.5px] font-medium">{title}</span>
           {demoMode ? (
-            <Badge variant="primary" className="hidden sm:inline-flex">
-              DEMO
-            </Badge>
+            <span className="hidden font-mono text-[10px] uppercase tracking-[0.32em] text-white/55 sm:inline">
+              · Demo
+            </span>
           ) : null}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-5">
           {phase === "live" || phase === "paused" ? (
-            <span className="flex items-center gap-1.5 text-xs font-mono">
-              <span className="rec-dot inline-block h-1.5 w-1.5 rounded-full bg-trust-low" />
-              REC
-              <span className="text-muted-foreground tabular-nums ml-1">
+            <span className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.32em]">
+              <span className="rec-dot inline-block h-1.5 w-1.5 rounded-full bg-white" />
+              <span className="text-white">REC</span>
+              <span className="ml-1 tabular-nums text-white/55">
                 {formatDuration(durationMs / 1000)}
               </span>
             </span>
           ) : null}
-          <Badge variant="outline">{phase.toUpperCase()}</Badge>
+          <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
+            {phase}
+          </span>
         </div>
       </header>
 
       {/* main grid (mobile: scrollable column, desktop: 2-col) */}
       <div className="absolute inset-x-0 top-12 bottom-0 overflow-y-auto lg:overflow-hidden lg:grid lg:grid-cols-[1fr_400px]">
         {/* left */}
-        <section className="relative flex flex-col gap-3 lg:overflow-hidden p-4">
+        <section className="relative flex flex-col gap-3 p-5 lg:overflow-hidden">
           <div className="relative aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0">
-            <motion.div
-              className="relative h-full w-full overflow-hidden rounded-md border-2"
-              animate={{ borderColor: trustColor(scores.trust) }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            >
+            <div className="relative h-full w-full overflow-hidden rounded-2xl border border-white/12">
               {!demoMode ? (
                 <video
                   ref={videoRef}
                   playsInline
                   muted
-                  className="h-full w-full object-cover -scale-x-100"
+                  className="h-full w-full -scale-x-100 object-cover"
                 />
               ) : (
-                <DemoCanvas trust={scores.trust} />
+                <DemoCanvas />
               )}
               {!demoMode && (
                 <WebcamCanvas
                   videoRef={videoRef}
                   face={mp.frame?.face ?? null}
                   pose={mp.frame?.pose ?? null}
-                  trustColor={trustColor(scores.trust)}
+                  trustColor="rgba(255,255,255,0.65)"
                 />
               )}
               {phase === "countdown" && <CountdownOverlay count={count} />}
@@ -520,40 +517,51 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
                   cameraError={cameraError}
                 />
               )}
-              {/* trust aura ring (top-right corner readout) */}
-              <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
-                <div className="rounded-sm border border-border-faint bg-background/70 backdrop-blur-md px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  TRUST {Math.round(scores.trust)}/100
-                </div>
+              {/* trust corner readout */}
+              <div className="absolute right-3 top-3 rounded-full border border-white/12 bg-black/70 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.32em] text-white/75 backdrop-blur-md">
+                Trust {Math.round(scores.trust)}/100
               </div>
-            </motion.div>
+            </div>
           </div>
           <LiveTranscript finalText={transcript} interimText={interim} />
           <CoachMessage message={coach?.text ?? null} />
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-              <Activity active={isLive} /> 분석 활성
-              {demoMode ? <span className="ml-2 text-primary">SIMULATED</span> : null}
+            <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
+              <Activity active={isLive} /> Analyzing
+              {demoMode ? <span className="text-white/65">· Simulated</span> : null}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {phase === "live" ? (
-                <Button variant="ghost" size="sm" onClick={pause}>
-                  <Pause className="size-3.5" /> 일시정지
-                </Button>
+                <button
+                  type="button"
+                  onClick={pause}
+                  className="font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/55 transition-colors hover:text-white"
+                >
+                  Pause
+                </button>
               ) : phase === "paused" ? (
-                <Button variant="ghost" size="sm" onClick={resume}>
-                  <Play className="size-3.5" /> 재개
-                </Button>
+                <button
+                  type="button"
+                  onClick={resume}
+                  className="font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/55 transition-colors hover:text-white"
+                >
+                  Resume
+                </button>
               ) : null}
-              <Button variant="destructive" size="sm" onClick={endSession}>
-                <Square className="size-3.5" /> 발표 종료
-              </Button>
+              <button
+                type="button"
+                onClick={endSession}
+                className="group inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-[12px] font-semibold text-black transition-transform hover:scale-[1.04]"
+              >
+                발표 종료
+                <span className="transition-transform group-hover:translate-x-0.5">→</span>
+              </button>
             </div>
           </div>
         </section>
 
         {/* right */}
-        <aside className="border-t lg:border-t-0 lg:border-l border-border-faint flex flex-col gap-3 lg:overflow-y-auto p-4">
+        <aside className="flex flex-col gap-3 border-t border-white/8 p-5 lg:border-l lg:border-t-0 lg:overflow-y-auto">
           <div className="flex flex-col gap-2">
             {JUDGES.map((j) => {
               const r = reactions[j.id];
@@ -568,9 +576,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
               );
             })}
           </div>
-          <div className="border-t border-border-faint pt-3">
-            <TrustScoreCard trust={scores.trust} />
-          </div>
+          <TrustScoreCard trust={scores.trust} />
           <div className="grid grid-cols-3 gap-2">
             <MiniScore label="시각" value={scores.visual} />
             <MiniScore label="음성" value={scores.audio} />
@@ -598,15 +604,13 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
       </div>
 
       {/* ambient strip */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] origin-center">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] origin-center">
         <motion.div
           className="h-full w-full"
-          animate={{ scaleX: 0.55 + ambient * 0.45, opacity: 0.55 + ambient * 0.45 }}
+          animate={{ scaleX: 0.55 + ambient * 0.45, opacity: 0.45 + ambient * 0.4 }}
           transition={{ duration: 0.18, ease: "easeOut" }}
           style={{
-            background: `linear-gradient(90deg, transparent, ${trustColor(
-              scores.trust,
-            )}, transparent)`,
+            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent)",
           }}
         />
       </div>
@@ -619,17 +623,17 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
 
 function CountdownOverlay({ count }: { count: number }) {
   return (
-    <div className="absolute inset-0 grid place-items-center bg-background/85 backdrop-blur-sm">
+    <div className="absolute inset-0 grid place-items-center bg-black/85 backdrop-blur-sm">
       <div className="flex flex-col items-center">
-        <span className="font-mono text-xs uppercase tracking-[0.4em] text-muted-foreground">
-          ARMING
+        <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/45">
+          Arming
         </span>
         <motion.span
           key={count}
           initial={{ scale: 1.2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.92, opacity: 0 }}
-          className="font-mono text-[140px] leading-none font-semibold tabular-nums text-primary"
+          className="font-mono text-[140px] font-medium leading-none tabular-nums text-white"
         >
           {count > 0 ? count : "GO"}
         </motion.span>
@@ -648,9 +652,9 @@ function ArmingOverlay({
   cameraError: string | null;
 }) {
   return (
-    <div className="absolute inset-0 grid place-items-center bg-background/85">
-      <div className="flex flex-col items-center gap-2">
-        <span className="font-mono text-xs uppercase tracking-[0.4em] text-muted-foreground">
+    <div className="absolute inset-0 grid place-items-center bg-black/85">
+      <div className="flex flex-col items-center gap-3">
+        <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/55">
           {cameraError
             ? "Switching to demo mode..."
             : demoMode
@@ -660,12 +664,12 @@ function ArmingOverlay({
                 : "Loading MediaPipe..."}
         </span>
         {!ready && !demoMode && !cameraError ? (
-          <div className="mt-1 flex gap-1">
+          <div className="flex gap-1.5">
             {[0, 1, 2].map((i) => (
               <motion.span
                 key={i}
-                className="block h-1.5 w-1.5 rounded-full bg-primary"
-                animate={{ opacity: [0.3, 1, 0.3] }}
+                className="block h-1 w-1 rounded-full bg-white"
+                animate={{ opacity: [0.25, 1, 0.25] }}
                 transition={{
                   duration: 1.2,
                   repeat: Number.POSITIVE_INFINITY,
@@ -680,55 +684,48 @@ function ArmingOverlay({
   );
 }
 
-function DemoCanvas({ trust }: { trust: number }) {
-  const c = trustColor(trust);
+function DemoCanvas() {
   return (
-    <div className="relative h-full w-full bg-surface-2 overflow-hidden">
-      {/* synthetic backdrop */}
+    <div className="relative h-full w-full overflow-hidden bg-[#0a0a0c]">
       <div
         className="absolute inset-0"
         style={{
-          background: `radial-gradient(ellipse 50% 60% at 50% 60%, ${c}22, transparent 70%)`,
+          background:
+            "radial-gradient(ellipse 50% 60% at 50% 60%, rgba(255,255,255,0.08), transparent 70%)",
         }}
       />
-      {/* abstract presenter silhouette */}
       <svg
         viewBox="0 0 400 300"
         className="absolute inset-0 h-full w-full"
         preserveAspectRatio="xMidYMid meet"
       >
-        <ellipse cx="200" cy="125" rx="44" ry="52" fill="var(--surface-3)" />
-        <path d="M120 300 Q120 200 200 200 Q280 200 280 300 Z" fill="var(--surface-3)" />
-        {/* eye ovals */}
-        <ellipse cx="186" cy="120" rx="3" ry="3" fill={c} />
-        <ellipse cx="214" cy="120" rx="3" ry="3" fill={c} />
-        {/* mesh dots — illusion of MediaPipe overlay */}
+        <ellipse cx="200" cy="125" rx="44" ry="52" fill="rgba(255,255,255,0.04)" />
+        <path d="M120 300 Q120 200 200 200 Q280 200 280 300 Z" fill="rgba(255,255,255,0.04)" />
+        <ellipse cx="186" cy="120" rx="3" ry="3" fill="rgba(255,255,255,0.85)" />
+        <ellipse cx="214" cy="120" rx="3" ry="3" fill="rgba(255,255,255,0.85)" />
         {Array.from({ length: 60 }).map((_, i) => {
           const angle = (i / 60) * Math.PI * 2;
           const r = 38 + (i % 5) * 4;
-          const x = 200 + Math.cos(angle) * r;
-          const y = 125 + Math.sin(angle) * r * 1.05;
-          return <circle key={i} cx={x} cy={y} r="0.7" fill={c} opacity={0.5} />;
+          const x = Math.round((200 + Math.cos(angle) * r) * 100) / 100;
+          const y = Math.round((125 + Math.sin(angle) * r * 1.05) * 100) / 100;
+          return <circle key={i} cx={x} cy={y} r="0.7" fill="rgba(255,255,255,0.55)" />;
         })}
       </svg>
-      <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-sm border border-border-faint bg-background/70 px-2 py-1 backdrop-blur-md">
-        <Sparkles className="size-3 text-primary" />
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          synthetic input · demo
-        </span>
+      <div className="absolute bottom-3 left-3 rounded-full border border-white/12 bg-black/70 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.32em] text-white/55 backdrop-blur-md">
+        Synthetic input · Demo
       </div>
     </div>
   );
 }
 
 function MiniScore({ label, value }: { label: string; value: number }) {
-  const c = trustColor(value);
+  const isLow = value < 45;
   return (
-    <div className="rounded-sm border border-border-faint bg-surface-1 px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
-        {label}
-      </div>
-      <div className="font-mono text-2xl font-semibold tabular-nums" style={{ color: c }}>
+    <div className="rounded-2xl border border-white/8 bg-black px-4 py-3">
+      <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">{label}</div>
+      <div
+        className={`mt-1 font-mono text-[24px] font-medium tabular-nums ${isLow ? "text-white/55" : "text-white"}`}
+      >
         {Math.round(value)}
       </div>
     </div>
@@ -738,7 +735,7 @@ function MiniScore({ label, value }: { label: string; value: number }) {
 function Activity({ active }: { active: boolean }) {
   return (
     <span
-      className={`inline-block h-1.5 w-1.5 rounded-full ${active ? "rec-dot bg-trust-high" : "bg-subtle-foreground"}`}
+      className={`inline-block h-1 w-1 rounded-full ${active ? "rec-dot bg-white" : "bg-white/30"}`}
     />
   );
 }

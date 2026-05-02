@@ -1,12 +1,7 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { createSession } from "@/lib/api-client";
 import { createClient } from "@/lib/supabase/client";
-import { AlertCircle, ArrowRight, Camera, Check, Mic } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -36,7 +31,7 @@ export default function NewPitchPage() {
         video: { width: 640, height: 480 },
         audio: true,
       });
-      stream.getTracks().forEach((t) => t.stop());
+      for (const t of stream.getTracks()) t.stop();
       setCamPerm("ok");
       setMicPerm("ok");
       toast.success("권한 확인 완료");
@@ -54,8 +49,6 @@ export default function NewPitchPage() {
     }
     setSubmitting(true);
     try {
-      // Try to create session via Railway. If unavailable (해커톤 dev),
-      // fall back to client-only UUID — Live page handles both paths.
       let id: string | null = null;
       try {
         const res = await createSession(title);
@@ -72,95 +65,122 @@ export default function NewPitchPage() {
 
   if (!authReady) {
     return (
-      <main className="grid min-h-dvh place-items-center text-muted-foreground text-sm">
-        loading...
+      <main className="grid min-h-dvh place-items-center bg-black">
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/40">
+          authenticating...
+        </span>
       </main>
     );
   }
 
   return (
-    <main className="grid min-h-dvh place-items-center px-6">
-      <div className="w-full max-w-[520px]">
+    <main className="relative grid min-h-dvh place-items-center bg-black px-6 text-white">
+      <div className="pointer-events-none absolute inset-0 opacity-[0.04]">
+        <div
+          aria-hidden
+          className="h-full w-full"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)",
+            backgroundSize: "72px 72px",
+            maskImage: "radial-gradient(ellipse 60% 60% at 50% 50%, #000 25%, transparent 75%)",
+            WebkitMaskImage:
+              "radial-gradient(ellipse 60% 60% at 50% 50%, #000 25%, transparent 75%)",
+          }}
+        />
+      </div>
+
+      <div className="relative w-full max-w-[520px]">
         <Link
           href="/dashboard"
-          className="mb-6 inline-flex font-mono text-xs text-muted-foreground hover:text-foreground"
+          className="mb-12 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.32em] text-white/55 transition-colors hover:text-white"
         >
-          ← 대시보드
+          ← Dashboard
         </Link>
 
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
+        <div className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/45">
+          New session
+        </div>
+        <h1
+          className="text-balance font-medium leading-[1.06]"
+          style={{ fontSize: "clamp(28px, 4.2vw, 48px)", letterSpacing: "-0.024em" }}
+        >
           새 피칭을 시작합니다.
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          카메라와 마이크 권한이 필요합니다. 모든 분석은 본인 계정에만 저장됩니다.
+        <p className="mt-3 max-w-[440px] text-[14.5px] leading-[1.6] text-white/55">
+          카메라와 마이크 권한이 필요합니다. 영상은 어떤 서버에도 보내지 않고 브라우저 안에서만
+          분석됩니다.
         </p>
 
+        <div className="mt-10 flex flex-col gap-2">
+          <label
+            htmlFor="title"
+            className="font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/55"
+          >
+            세션 이름
+          </label>
+          <input
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="예: Q3 시드 IR 1차 리허설"
+            className="h-11 rounded-lg border border-white/12 bg-black px-4 text-[14px] text-white placeholder:text-white/30 transition-colors focus:border-white/45 focus:outline-none"
+          />
+        </div>
+
+        <div className="mt-8 grid gap-2">
+          <PermissionRow label="카메라" state={camPerm} />
+          <PermissionRow label="마이크" state={micPerm} />
+        </div>
+
         <div className="mt-8 flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="title">세션 이름</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="예: Q3 시드 IR 1차 리허설"
-            />
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-2">
-          <PermissionRow icon={<Camera className="size-4" />} label="카메라" state={camPerm} />
-          <PermissionRow icon={<Mic className="size-4" />} label="마이크" state={micPerm} />
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3">
           {camPerm !== "ok" || micPerm !== "ok" ? (
-            <Button onClick={requestPermissions} variant="secondary" size="lg">
+            <button
+              type="button"
+              onClick={requestPermissions}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 text-[14px] font-medium text-white transition-colors hover:border-white/35 hover:bg-white/[0.04]"
+            >
               권한 요청
-            </Button>
+            </button>
           ) : null}
-          <Button
+          <button
+            type="button"
             onClick={startSession}
             disabled={submitting || camPerm !== "ok" || micPerm !== "ok"}
-            size="lg"
+            className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-5 text-[14px] font-semibold text-black transition-transform hover:scale-[1.02] disabled:opacity-50"
           >
-            발표 시작 <ArrowRight className="size-4" />
-          </Button>
+            발표 시작
+            <span className="transition-transform group-hover:translate-x-0.5">→</span>
+          </button>
         </div>
 
-        <Badge variant="outline" className="mt-6">
-          5초 청크 · 100ms 트리거 · 5축 측정
-        </Badge>
+        <div className="mt-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.32em] text-white/30">
+          <span className="h-px flex-1 bg-white/10" />
+          또는
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
+
+        <Link
+          href="/pitch/demo/live?title=Demo&demo=1"
+          className="mt-4 block text-center font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/55 transition-colors hover:text-white"
+        >
+          권한 없이 60초 데모 보기 →
+        </Link>
       </div>
     </main>
   );
 }
 
-function PermissionRow({
-  icon,
-  label,
-  state,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  state: Permission;
-}) {
+function PermissionRow({ label, state }: { label: string; state: Permission }) {
+  const stateLabel = state === "ok" ? "READY" : state === "denied" ? "DENIED" : "PENDING";
+  const stateColor =
+    state === "ok" ? "text-white" : state === "denied" ? "text-white/85" : "text-white/35";
   return (
-    <div className="flex items-center justify-between rounded-sm border border-border-faint bg-surface-1 px-3 py-2.5">
-      <span className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">{icon}</span>
-        {label}
+    <div className="flex items-center justify-between rounded-lg border border-white/8 bg-black px-4 py-3">
+      <span className="text-[14px]">{label}</span>
+      <span className={`font-mono text-[10.5px] uppercase tracking-[0.32em] ${stateColor}`}>
+        {stateLabel}
       </span>
-      {state === "ok" ? (
-        <span className="flex items-center gap-1 text-xs text-trust-high font-mono">
-          <Check className="size-3.5" /> READY
-        </span>
-      ) : state === "denied" ? (
-        <span className="flex items-center gap-1 text-xs text-trust-low font-mono">
-          <AlertCircle className="size-3.5" /> DENIED
-        </span>
-      ) : (
-        <span className="text-xs text-subtle-foreground font-mono">PENDING</span>
-      )}
     </div>
   );
 }

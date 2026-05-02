@@ -203,11 +203,12 @@ function Visual({ variant }: { variant: Pillar["visual"] }) {
 
 /** 시선 — 얼굴 mesh 점들 + 시선 ray. */
 function VisualGaze() {
+  // 정수로 round → SSR/CSR 동일 문자열, hydration mismatch 방지.
   const dots = Array.from({ length: 80 }).map((_, i) => {
     const angle = (i / 80) * Math.PI * 2;
     const r = 60 + (i % 7) * 8;
-    const x = Math.cos(angle) * r;
-    const y = Math.sin(angle) * r * 1.1;
+    const x = Math.round(Math.cos(angle) * r * 100) / 100;
+    const y = Math.round(Math.sin(angle) * r * 1.1 * 100) / 100;
     return { x, y, key: i };
   });
   return (

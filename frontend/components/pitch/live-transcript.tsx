@@ -29,7 +29,6 @@ interface Props {
 
 function highlight(text: string) {
   if (!text) return null;
-  // greedy split keeping order; simplistic but fine for live display.
   const tokens: { type: "filler" | "empty" | "plain"; text: string }[] = [];
   let cursor = 0;
   while (cursor < text.length) {
@@ -52,7 +51,6 @@ function highlight(text: string) {
       }
     }
     if (matched) continue;
-    // accumulate plain run
     const next = cursor + 1;
     const last = tokens[tokens.length - 1];
     if (last?.type === "plain") last.text += text[cursor];
@@ -64,14 +62,14 @@ function highlight(text: string) {
       return (
         <span
           key={i}
-          className="bg-filler-highlight-bg text-filler-highlight underline decoration-wavy decoration-1 underline-offset-4 px-0.5 rounded-xs"
+          className="rounded-sm bg-white/[0.08] px-0.5 text-white underline decoration-white/55 decoration-wavy decoration-1 underline-offset-4"
         >
           {tk.text}
         </span>
       );
     if (tk.type === "empty")
       return (
-        <span key={i} className="text-trust-mid underline underline-offset-4 decoration-1">
+        <span key={i} className="text-white/65 underline decoration-1 underline-offset-4">
           {tk.text}
         </span>
       );
@@ -89,13 +87,17 @@ export function LiveTranscript({ finalText, interimText }: Props) {
   }, [finalText, interimText]);
 
   return (
-    <div className="rounded-md border border-border-faint bg-surface-1 px-4 py-3 h-32 overflow-hidden relative">
-      <div className="absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-surface-1 to-transparent pointer-events-none z-10" />
-      <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-surface-1 to-transparent pointer-events-none z-10" />
+    <div className="relative h-32 overflow-hidden rounded-2xl border border-white/8 bg-black px-5 py-4">
+      <div className="mb-2 flex items-center gap-3">
+        <span className="inline-block h-px w-4 bg-white" aria-hidden />
+        <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
+          Live transcript
+        </span>
+      </div>
       <div
         ref={ref}
         aria-live="polite"
-        className="h-full overflow-y-auto font-mono text-sm leading-relaxed pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="h-[68px] overflow-y-auto pr-2 text-[14px] leading-relaxed text-white [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <AnimatePresence>
           <motion.span
@@ -107,7 +109,7 @@ export function LiveTranscript({ finalText, interimText }: Props) {
             {highlight(finalText)}
           </motion.span>
         </AnimatePresence>
-        <span className="text-subtle-foreground"> {interimText}</span>
+        <span className="text-white/35"> {interimText}</span>
       </div>
     </div>
   );

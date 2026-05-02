@@ -12,21 +12,28 @@ interface Props {
 }
 
 export function JudgeCard({ judge, expression, comment, gazeX = 0 }: Props) {
-  const accent = judge.accentVar;
+  const active = !!comment;
   return (
     <div
-      className="flex items-start gap-3 rounded-md border bg-surface-1 p-3 transition-colors"
-      style={{ borderColor: comment ? accent : "var(--border-faint)" }}
+      className="flex items-start gap-3 rounded-2xl border bg-black p-3.5 transition-colors"
+      style={{
+        borderColor: active ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)",
+      }}
     >
-      <JudgeAvatar judgeId={judge.id} expression={expression} accent={accent} gazeX={gazeX} />
+      <JudgeAvatar
+        judgeId={judge.id}
+        expression={expression}
+        accent="rgba(255,255,255,0.85)"
+        gazeX={gazeX}
+      />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{judge.nameKo}</span>
-          <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: accent }}>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[14px] font-medium text-white">{judge.nameKo}</span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.32em] text-white/40">
             {expression}
           </span>
         </div>
-        <p className="text-[11px] text-muted-foreground line-clamp-1">{judge.persona}</p>
+        <p className="mt-0.5 text-[11.5px] leading-tight text-white/45">{judge.persona}</p>
         <AnimatePresence mode="wait">
           {comment ? (
             <motion.p
@@ -35,10 +42,9 @@ export function JudgeCard({ judge, expression, comment, gazeX = 0 }: Props) {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -4, opacity: 0 }}
               transition={{ duration: 0.18 }}
-              className="mt-2 inline-block w-fit border-l-2 px-2 py-0.5 text-xs"
-              style={{ borderColor: accent }}
+              className="mt-2 inline-block w-fit border-l border-white pl-2 text-[12.5px] leading-[1.4] text-white"
             >
-              {comment}
+              "{comment}"
             </motion.p>
           ) : null}
         </AnimatePresence>
