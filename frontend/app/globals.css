@@ -109,12 +109,14 @@
 }
 
 /* Pretendard Variable from CDN */
+@import url("https://cdn.jsdelivr.net/npm/pretendard/dist/web/variable/pretendardvariable.css");
+/* fallback @font-face — npm path 가 끊기면 jsdelivr github 으로 */
 @font-face {
   font-family: "Pretendard Variable";
   font-weight: 45 920;
   font-style: normal;
   font-display: swap;
-  src: url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/woff2/PretendardVariable.woff2")
+  src: url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2")
     format("woff2-variations");
 }
 
