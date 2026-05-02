@@ -266,32 +266,50 @@ async def generate_heckle(
     transcript_excerpt: str,
     context: Optional[dict] = None,
     research: Optional[dict] = None,
-) -> str:
+    asked_questions: Optional[list[str]] = None,
+    last_seen_pos: int = 0,
+) -> tuple[str, bool]:
     """LLM-generated VC-style jab grounded in the actual pitch context.
 
-    Returns ONE line, 10-30 Korean characters, ending with a question mark or
-    a sharp full stop. Falls back to a hand-crafted pool when the LLM is
-    unavailable or returns junk.
+    Returns (text, is_silent).
+      - is_silent = True  → judge chooses NOT to speak (because the speaker
+        already addressed prior questions, or there's nothing new since the
+        last fire). Frontend should NOT play audio nor render a chip.
+      - is_silent = False → speak `text` aloud.
+
+    Constraints enforced via the prompt:
+      1. 반드시 한국어 존댓말 (-습니다 / -하세요 / -신가요). 반말 금지.
+      2. 직전 ~30초 발화에 직접 반응. 한참 지난 내용 재질문 금지.
+      3. 발표자가 이미 답한 / 해소된 의문은 다시 묻지 않음.
+      4. asked_questions 에 있는 질문과 겹치지 않음.
+      5. 새 정보가 없으면 silent 선택 가능.
     """
     fallback_pool = FALLBACK_HECKLES.get(judge_id) or FALLBACK_HECKLES["judge-fact"]
     fallback_line = random.choice(fallback_pool)
 
     client = openai_client()
     if not client:
-        return fallback_line
+        return fallback_line, False
 
     persona = PERSONA_PROMPT.get(judge_id, PERSONA_PROMPT["judge-fact"])
-    excerpt = (transcript_excerpt or "").strip()[-4000:]
+
+    full_excerpt = (transcript_excerpt or "").strip()
+    # The "recent" window the judge should react to — last ~600 chars
+    # (~30s of spoken Korean). Earlier transcript is background only.
+    recent_window = full_excerpt[-600:]
+    earlier_window = full_excerpt[max(0, len(full_excerpt) - 4000) : -600]
+
+    # Anything since the last time this judge spoke — true new ground.
+    new_since_last = full_excerpt[last_seen_pos:] if last_seen_pos else recent_window
 
     ctx = context or {}
     title = (ctx.get("title") or "").strip()[:120]
-    script_seed = (ctx.get("script") or "").strip()[:1800]
-    deck_text = (ctx.get("deck_text") or "").strip()[:1800]
+    script_seed = (ctx.get("script") or "").strip()[:1500]
+    deck_text = (ctx.get("deck_text") or "").strip()[:1500]
     research_block = _format_research(research)
 
-    # Without ANY signal we'd just be improvising — fall back instead of inventing.
-    if not excerpt and not script_seed and not deck_text:
-        return fallback_line
+    if not full_excerpt and not script_seed and not deck_text:
+        return fallback_line, False
 
     pitch_block_parts: list[str] = []
     if title:
@@ -302,31 +320,43 @@ async def generate_heckle(
         pitch_block_parts.append(f"[IR 덱 텍스트 발췌]\n{deck_text}")
     if research_block:
         pitch_block_parts.append(f"[사전 시장 리서치]\n{research_block}")
-    pitch_block = "\n\n".join(pitch_block_parts)
+    pitch_block = "\n\n".join(pitch_block_parts) or "(컨텍스트 없음)"
 
-    transcript_block = excerpt if excerpt else "(아직 발표자가 충분히 말하지 않음)"
+    asked_block = (
+        "\n".join(f"- {q}" for q in (asked_questions or [])[-8:])
+        or "(아직 한 질문 없음)"
+    )
 
     system = (
         f"{persona}\n\n"
-        "규칙:\n"
-        "- 한국어로 한 문장만.\n"
-        "- 10~30자. 너무 길면 안 됨.\n"
-        "- 발표자가 *실제로 말한 내용 또는 회사가 주장한 사실* 을 직접 가리켜야 함.\n"
-        "- 일반론 X. '시장 규모 어떻게 되죠?' 같은 추상적 질문이 아니라,\n"
-        "  발표 안에 등장한 *구체적 단어·수치·주장·제품명·고객·시장 카테고리* 를 짚어 묻는다.\n"
-        "- 격식 차리지 말고 짧고 날카롭게. VC가 회의실에서 끊고 들어오는 톤.\n"
-        "- 일반적 격려 X. '좋네요' / '잘하시네요' 절대 X.\n"
-        "- 막연한 칭찬·동의 X. 반드시 *질문 또는 도발*.\n"
-        "- 출력은 그 한 문장만. 따옴표·prefix·explanation X."
+        "규칙 (반드시 지킬 것):\n"
+        "1. 반드시 한국어 *존댓말* 로 말한다. '-습니다 / -하세요 / -신가요 / -이신가요' 류.\n"
+        "   '-야 / -지 / -해 / -잖아' 같은 반말 절대 금지.\n"
+        "2. 직전 ~30초 발화 (RECENT WINDOW) 에 직접 반응한다. 한참 전 한 말을 \n"
+        "   다시 꺼내거나 일반 VC 질문 던지는 거 금지.\n"
+        "3. 발표자가 *이미 답했거나 해소된 의문* 은 다시 묻지 않는다.\n"
+        "4. 내가 이전에 한 질문 (ASKED) 과 의미가 겹치는 질문은 던지지 않는다.\n"
+        "5. RECENT WINDOW 에 새로 짚을 만한 게 *없거나*, 발표자가 직전에 \n"
+        "   질문에 충분히 답해서 더 캐물을 게 없으면 'SILENT' 한 단어만 출력한다.\n"
+        "6. 그 외에는 한 문장. 10~40자. 발표 안에 실제 등장한 단어·수치·주장을 짚는다.\n"
+        "   추상적 일반론 X. 따옴표·prefix·설명 X. 그 한 줄만.\n"
+        "7. 칭찬·동의·격려는 출력 금지. 반드시 *질문 또는 도발*.\n"
     )
 
     user = (
-        "다음은 이 회사의 피칭 컨텍스트와 발표자의 최근 발화입니다.\n\n"
-        f"## 회사·제품 컨텍스트 (정적)\n{pitch_block or '(컨텍스트 없음)'}\n\n"
-        f"## 발표자가 지금까지 한 말 (라이브 transcript)\n{transcript_block}\n\n"
-        "위 두 정보를 *모두* 보고, 발표 안에 실제로 등장한 구체적 요소를 골라 "
-        "한 줄 태클을 던지세요. 단순 일반 VC 질문 금지.\n\n"
-        "태클 한 줄:"
+        "## 회사·제품 컨텍스트 (정적)\n"
+        f"{pitch_block}\n\n"
+        "## 내가 (이 심사위원) 이미 던진 질문 (중복 금지)\n"
+        f"{asked_block}\n\n"
+        "## 발표 흐름 (배경 — 직접 반응할 필요 X)\n"
+        f"{earlier_window or '(없음)'}\n\n"
+        "## RECENT WINDOW — 직전 ~30초 발화 (이 부분에 반응)\n"
+        f"{recent_window or '(없음)'}\n\n"
+        "## 위 RECENT WINDOW 에서 새로 등장한 발화 (last_seen_pos 이후)\n"
+        f"{new_since_last or '(없음)'}\n\n"
+        "위 정보로:\n"
+        "- 새로 짚을 만한 구체적 요소가 있고 ASKED 와 겹치지 않으면 → 한 줄 도발\n"
+        "- 없거나 발표자가 직전에 답을 잘 했으면 → 'SILENT'\n"
     )
 
     try:
@@ -336,23 +366,26 @@ async def generate_heckle(
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            temperature=0.85,
+            temperature=0.8,
             max_tokens=120,
         )
         text = (resp.choices[0].message.content or "").strip()
         text = text.strip().strip("\"'`")
-        # Defensive truncation if the model went long.
-        if len(text) > 60:
+
+        if text.upper().startswith("SILENT"):
+            return "", True
+
+        if len(text) > 80:
             for sep in ("?", ".", "!"):
                 idx = text.find(sep)
-                if 8 <= idx <= 60:
+                if 8 <= idx <= 80:
                     text = text[: idx + 1]
                     break
             else:
-                text = text[:60]
+                text = text[:80]
         if len(text) < 6:
-            return fallback_line
-        return text
+            return fallback_line, False
+        return text, False
     except Exception:
         logger.exception("[generate_heckle] LLM call failed for %s", judge_id)
-        return fallback_line
+        return fallback_line, False

@@ -228,6 +228,10 @@ class HeckleRes(BaseModel):
     judge_name: str
     text: str
     voice_b64: Optional[str] = None
+    # True when the judge decided not to interject (already answered, no new
+    # ground since last fire). Frontend should NOT play audio nor render a
+    # chip when silent=True.
+    silent: bool = False
 
 
 @router.post("/sessions/{session_id}/heckle", response_model=HeckleRes)
@@ -250,14 +254,29 @@ async def heckle(
 
     recent: list[str] = state.setdefault("heckle_recent", [])
 
+    # Per-judge memory so each judge knows what they've already asked and
+    # how far into the transcript they last reacted. Stored in session_state
+    # so it survives across calls within one session.
+    judge_memory: dict = state.setdefault(
+        "judge_memory",
+        {jid: {"asked": [], "last_seen_pos": 0} for jid in _JUDGE_IDS},
+    )
+
     # 1. Demo path: keyword-matched scripted heckle takes priority so the
     #    pitch always lands the rehearsed dramatic beat. Each scripted rule
     #    fires at most once per session (tracked in state["heckle_scripted_used"]).
     used_ids: set[str] = state.setdefault("heckle_scripted_used", set())
+    is_silent = False
     if req and req.judge_id and req.judge_id in _JUDGE_NAME:
         judge_id = req.judge_id
-        text = await generate_heckle(
-            judge_id, transcript, context=context, research=research
+        mem = judge_memory.setdefault(judge_id, {"asked": [], "last_seen_pos": 0})
+        text, is_silent = await generate_heckle(
+            judge_id,
+            transcript,
+            context=context,
+            research=research,
+            asked_questions=mem.get("asked", []),
+            last_seen_pos=mem.get("last_seen_pos", 0),
         )
     else:
         scripted = find_scripted_heckle(transcript, recent_judges=recent, used_ids=used_ids)
@@ -270,9 +289,32 @@ async def heckle(
             if not candidates:
                 candidates = _JUDGE_IDS
             judge_id = random.choice(candidates)
-            text = await generate_heckle(
-                judge_id, transcript, context=context, research=research
+            mem = judge_memory.setdefault(judge_id, {"asked": [], "last_seen_pos": 0})
+            text, is_silent = await generate_heckle(
+                judge_id,
+                transcript,
+                context=context,
+                research=research,
+                asked_questions=mem.get("asked", []),
+                last_seen_pos=mem.get("last_seen_pos", 0),
             )
+
+    if is_silent:
+        logger.info("[heckle] silent — judge=%s declined to speak", judge_id)
+        return HeckleRes(
+            judge_id=judge_id,
+            judge_name=_JUDGE_NAME[judge_id],
+            text="",
+            voice_b64=None,
+            silent=True,
+        )
+
+    # Record this question in the speaker's memory + advance their pointer.
+    mem = judge_memory.setdefault(judge_id, {"asked": [], "last_seen_pos": 0})
+    mem.setdefault("asked", []).append(text)
+    if len(mem["asked"]) > 12:
+        del mem["asked"][:-12]
+    mem["last_seen_pos"] = len(transcript)
 
     recent.append(judge_id)
     if len(recent) > 6:
@@ -289,4 +331,5 @@ async def heckle(
         judge_name=_JUDGE_NAME[judge_id],
         text=text,
         voice_b64=voice_b64,
+        silent=False,
     )

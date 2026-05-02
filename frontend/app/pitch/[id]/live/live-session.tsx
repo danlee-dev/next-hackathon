@@ -494,6 +494,12 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
       try {
         const r = await fetchHeckle(sessionId);
         if (cancelled) return;
+        if (r.silent) {
+          // Judge decided not to interject — speaker just answered something
+          // or there's nothing new since the last question. Stay quiet.
+          console.info("[heckle] silent — judge declined", r.judge_id);
+          return;
+        }
         console.info("[heckle] got", {
           judge: r.judge_id,
           text: r.text,

@@ -180,6 +180,9 @@ export interface HeckleRes {
   judge_name: string;
   text: string;
   voice_b64?: string | null;
+  /** Backend signaled the judge declined to interject (already answered or
+   * nothing new since last fire). Frontend skips audio + chip when true. */
+  silent?: boolean;
 }
 
 export async function fetchHeckle(sessionId: string): Promise<HeckleRes> {
