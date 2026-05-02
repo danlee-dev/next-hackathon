@@ -56,8 +56,10 @@ export default function LandingPage() {
                   지금 발표 시작 <ArrowRight className="size-4" />
                 </Link>
               </Button>
-              <Button asChild variant="ghost" size="lg">
-                <Link href="/auth/login">로그인</Link>
+              <Button asChild variant="secondary" size="lg">
+                <Link href="/pitch/demo/live?title=Demo&demo=1">
+                  데모 보기 (60초)
+                </Link>
               </Button>
             </div>
             <dl className="mt-8 grid grid-cols-3 gap-6 border-t border-border-faint pt-6">

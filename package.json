@@ -1,0 +1,23 @@
+{
+  "name": "trustpitch-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "frontend:dev": "pnpm --filter trustpitch-frontend dev",
+    "frontend:build": "pnpm --filter trustpitch-frontend build",
+    "frontend:test": "pnpm --filter trustpitch-frontend test",
+    "frontend:lint": "pnpm --filter trustpitch-frontend lint",
+    "frontend:typecheck": "pnpm --filter trustpitch-frontend typecheck"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0"
+  },
+  "lint-staged": {
+    "frontend/**/*.{ts,tsx,js,jsx,json}": [
+      "pnpm --filter trustpitch-frontend exec biome check --write --no-errors-on-unmatched"
+    ]
+  },
+  "packageManager": "pnpm@10.11.0"
+}
