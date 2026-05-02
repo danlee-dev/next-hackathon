@@ -1,0 +1,115 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import {
+  FaceLandmarker,
+  PoseLandmarker,
+  FilesetResolver,
+  type FaceLandmarkerResult,
+  type PoseLandmarkerResult,
+} from "@mediapipe/tasks-vision";
+
+export interface MediaPipeFrame {
+  face: FaceLandmarkerResult | null;
+  pose: PoseLandmarkerResult | null;
+  timestampMs: number;
+}
+
+const VISION_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm";
+const FACE_MODEL =
+  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+const POSE_MODEL =
+  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+
+export function useMediaPipe(
+  videoRef: React.RefObject<HTMLVideoElement | null>,
+  enabled: boolean = true
+) {
+  const faceRef = useRef<FaceLandmarker | null>(null);
+  const poseRef = useRef<PoseLandmarker | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const frameRef = useRef<MediaPipeFrame | null>(null);
+  const [frameVersion, setFrameVersion] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(VISION_WASM);
+        const [face, pose] = await Promise.all([
+          FaceLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: FACE_MODEL, delegate: "GPU" },
+            outputFaceBlendshapes: true,
+            outputFacialTransformationMatrixes: false,
+            runningMode: "VIDEO",
+            numFaces: 1,
+          }),
+          PoseLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: POSE_MODEL, delegate: "GPU" },
+            runningMode: "VIDEO",
+            numPoses: 1,
+          }),
+        ]);
+        if (cancelled) {
+          face.close();
+          pose.close();
+          return;
+        }
+        faceRef.current = face;
+        poseRef.current = pose;
+        setReady(true);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      faceRef.current?.close();
+      poseRef.current?.close();
+      faceRef.current = null;
+      poseRef.current = null;
+    };
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let lastTs = 0;
+
+    const tick = () => {
+      const v = videoRef.current;
+      if (
+        v &&
+        v.readyState >= 2 &&
+        faceRef.current &&
+        poseRef.current
+      ) {
+        const ts = performance.now();
+        if (ts - lastTs > 33) {
+          try {
+            const face = faceRef.current.detectForVideo(v, ts);
+            const pose = poseRef.current.detectForVideo(v, ts);
+            frameRef.current = { face, pose, timestampMs: ts };
+            setFrameVersion((n) => (n + 1) & 0xffff);
+          } catch {
+            // 첫 프레임 등 race condition 무시
+          }
+          lastTs = ts;
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [ready, videoRef]);
+
+  return { ready, error, frame: frameRef.current, frameVersion };
+}
