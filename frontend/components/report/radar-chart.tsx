@@ -27,19 +27,23 @@ export function RadarScore({ visual, audio, content, consistency }: Props) {
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart data={data} outerRadius="72%">
-          <PolarGrid stroke="var(--border-faint)" />
-          <PolarAngleAxis dataKey="axis" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
+          <PolarGrid stroke="rgba(255,255,255,0.1)" />
+          <PolarAngleAxis dataKey="axis" tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }} />
           <PolarRadiusAxis
             domain={[0, 100]}
-            tick={{ fill: "var(--subtle-foreground)", fontSize: 9, fontFamily: "var(--font-mono)" }}
+            tick={{
+              fill: "rgba(255,255,255,0.3)",
+              fontSize: 9,
+              fontFamily: "var(--font-mono)",
+            }}
             axisLine={false}
           />
           <Radar
             dataKey="value"
-            stroke="oklch(0.74 0.15 195)"
+            stroke="rgba(255,255,255,0.85)"
             strokeWidth={1.5}
-            fill="oklch(0.74 0.15 195)"
-            fillOpacity={0.25}
+            fill="rgba(255,255,255,0.85)"
+            fillOpacity={0.18}
           />
         </RadarChart>
       </ResponsiveContainer>
