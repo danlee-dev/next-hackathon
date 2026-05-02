@@ -98,10 +98,10 @@
   --color-judge-critical: var(--judge-critical-accent);
   --color-ring: var(--ring);
   --color-pulse: var(--pulse);
-  --font-sans: "Pretendard Variable", "Pretendard", "Inter Variable", "Inter",
-    ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace,
-    SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans: "Pretendard Variable", "Pretendard", "Inter Variable", "Inter", ui-sans-serif,
+    system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono",
+    Menlo, Consolas, monospace;
   --radius-xs: var(--radius-xs);
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
@@ -183,8 +183,7 @@ body {
 
 /* Subtle ambient grid background for landing/data screens */
 .bg-grid {
-  background-image:
-    linear-gradient(to right, var(--border-faint) 1px, transparent 1px),
+  background-image: linear-gradient(to right, var(--border-faint) 1px, transparent 1px),
     linear-gradient(to bottom, var(--border-faint) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 30%, transparent 80%);

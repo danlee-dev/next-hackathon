@@ -65,8 +65,7 @@ export class DemoSimulator {
 
     // 시간에 따라 약간씩 변하는 metric 합성 (sine wave + drift)
     const t = ts / 1000;
-    const eye =
-      55 + Math.sin(t / 4) * 18 + (t > 18 ? -10 : 0) + (t > 30 ? 5 : 0);
+    const eye = 55 + Math.sin(t / 4) * 18 + (t > 18 ? -10 : 0) + (t > 30 ? 5 : 0);
     const head = 70 + Math.cos(t / 5) * 12;
     const sway = 22 + Math.sin(t / 3) * 12 + (t > 20 ? 8 : 0);
     const gesture = 45 + Math.sin(t / 6) * 18;
@@ -127,8 +126,9 @@ function clamp(n: number, lo: number, hi: number) {
  * Synthetic timeline for the post-pitch report — used when the live session
  * never connected to a backend (demo mode). 60 seconds of plausible variance.
  */
-export function generateDemoTimeline(durationMs: number = 60_000) {
-  const points: { ts_ms: number; trust: number; visual: number; audio: number; metrics: any }[] = [];
+export function generateDemoTimeline(durationMs = 60_000) {
+  const points: { ts_ms: number; trust: number; visual: number; audio: number; metrics: any }[] =
+    [];
   const step = 1500;
   for (let t = 0; t <= durationMs; t += step) {
     const sec = t / 1000;

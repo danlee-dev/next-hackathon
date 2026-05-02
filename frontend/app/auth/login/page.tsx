@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { createClient } from "@/lib/supabase/client";
 import { ArrowRight, Mail } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -70,9 +70,7 @@ export default function LoginPage() {
         <h1 className="font-display text-2xl font-semibold tracking-tight">
           {mode === "sign-in" ? "다시 오신 걸 환영합니다." : "계정을 만듭니다."}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          한국 IR 발표에 특화된 AI 코칭 서비스.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">한국 IR 발표에 특화된 AI 코칭 서비스.</p>
 
         <form onSubmit={onEmail} className="mt-8 flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
@@ -97,9 +95,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="6자 이상"
-              autoComplete={
-                mode === "sign-in" ? "current-password" : "new-password"
-              }
+              autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
             />
           </div>
           <Button type="submit" disabled={loading} size="lg">
@@ -131,9 +127,7 @@ export default function LoginPage() {
           onClick={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")}
           className="mt-6 w-full text-center text-xs text-muted-foreground hover:text-foreground"
         >
-          {mode === "sign-in"
-            ? "처음이신가요? 가입하기"
-            : "이미 계정이 있으신가요? 로그인"}
+          {mode === "sign-in" ? "처음이신가요? 가입하기" : "이미 계정이 있으신가요? 로그인"}
         </button>
       </div>
     </main>

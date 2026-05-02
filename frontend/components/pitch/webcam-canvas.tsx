@@ -1,10 +1,7 @@
 "use client";
 
+import type { FaceLandmarkerResult, PoseLandmarkerResult } from "@mediapipe/tasks-vision";
 import { useEffect, useRef } from "react";
-import type {
-  FaceLandmarkerResult,
-  PoseLandmarkerResult,
-} from "@mediapipe/tasks-vision";
 
 interface Props {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -82,10 +79,5 @@ export function WebcamCanvas({ videoRef, face, pose, trustColor }: Props) {
     }
   });
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="pointer-events-none absolute inset-0 h-full w-full"
-    />
-  );
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />;
 }

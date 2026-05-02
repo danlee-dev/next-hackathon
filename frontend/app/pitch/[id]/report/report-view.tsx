@@ -1,20 +1,20 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { motion } from "motion/react";
-import { fetchReport } from "@/lib/api-client";
-import { useTrustStore } from "@/hooks/use-trust-store";
-import { JUDGES } from "@/lib/judges/definitions";
-import { TimelineChart } from "@/components/report/timeline-chart";
 import { RadarScore } from "@/components/report/radar-chart";
-import { Button } from "@/components/ui/button";
+import { TimelineChart } from "@/components/report/timeline-chart";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTrustStore } from "@/hooks/use-trust-store";
+import { fetchReport } from "@/lib/api-client";
+import { generateDemoTimeline } from "@/lib/demo-simulator";
+import { JUDGES } from "@/lib/judges/definitions";
 import { trustColor, trustLabel } from "@/lib/utils";
 import type { FinalReport } from "@/types/pitch";
 import { ArrowRight, Repeat } from "lucide-react";
-import { generateDemoTimeline } from "@/lib/demo-simulator";
+import { motion } from "motion/react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 interface Props {
   sessionId: string;
@@ -71,7 +71,7 @@ export function ReportView({ sessionId, demoMode = false }: Props) {
           weaknesses: r.weaknesses,
           action_items: r.action_items,
           judge_summaries: r.judge_summaries,
-        })
+        }),
       )
       .catch(() => {
         // fallback: synth report from local store
@@ -108,7 +108,10 @@ export function ReportView({ sessionId, demoMode = false }: Props) {
     <main className="min-h-dvh">
       <header className="border-b border-border-faint">
         <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between px-6">
-          <Link href="/dashboard" className="font-mono text-xs text-muted-foreground hover:text-foreground">
+          <Link
+            href="/dashboard"
+            className="font-mono text-xs text-muted-foreground hover:text-foreground"
+          >
             ← 대시보드
           </Link>
           <div className="flex items-center gap-2">
@@ -160,15 +163,12 @@ export function ReportView({ sessionId, demoMode = false }: Props) {
             data={
               store.timeline.length > 0
                 ? store.timeline
-                : (demoMode
-                    ? generateDemoTimeline(60_000)
-                    : Array.from({ length: 12 }).map((_, i) => ({
-                        ts_ms: i * 5000,
-                        trust: Math.max(
-                          40,
-                          report.trust_score + Math.sin(i / 2) * 12
-                        ),
-                      })))
+                : demoMode
+                  ? generateDemoTimeline(60_000)
+                  : Array.from({ length: 12 }).map((_, i) => ({
+                      ts_ms: i * 5000,
+                      trust: Math.max(40, report.trust_score + Math.sin(i / 2) * 12),
+                    }))
             }
           />
         </Section>
@@ -345,7 +345,6 @@ function deriveActions(s: ReturnType<typeof useTrustStore.getState>) {
     r.push("슬라이드 전환 직후 2초간 카메라를 응시하는 습관을 만듭니다.");
   if (s.metrics.pitch_stability < 60)
     r.push("호흡을 고르고 첫 문장은 천천히 내뱉는 연습을 합니다.");
-  if (r.length < 3)
-    r.push("핵심 숫자 3개를 암기 후 발표 — 자료를 보지 않고 말합니다.");
+  if (r.length < 3) r.push("핵심 숫자 3개를 암기 후 발표 — 자료를 보지 않고 말합니다.");
   return r.slice(0, 3);
 }

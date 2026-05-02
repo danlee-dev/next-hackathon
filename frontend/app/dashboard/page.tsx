@@ -1,10 +1,10 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
+import { trustColor } from "@/lib/utils";
+import { ArrowRight, Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Plus } from "lucide-react";
-import { trustColor, trustLabel } from "@/lib/utils";
 
 interface SessionRow {
   id: string;
@@ -25,9 +25,7 @@ export default async function DashboardPage() {
 
   const { data } = await supabase
     .from("pitch_sessions")
-    .select(
-      "id,title,status,started_at,ended_at,duration_seconds,trust_score"
-    )
+    .select("id,title,status,started_at,ended_at,duration_seconds,trust_score")
     .order("started_at", { ascending: false })
     .limit(50);
 
@@ -37,17 +35,11 @@ export default async function DashboardPage() {
     <main className="min-h-dvh">
       <header className="border-b border-border-faint">
         <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between px-6">
-          <Link
-            href="/"
-            className="font-mono text-sm font-medium tracking-tight"
-          >
+          <Link href="/" className="font-mono text-sm font-medium tracking-tight">
             TrustPitch
           </Link>
           <nav className="flex items-center gap-3">
-            <Link
-              href="/settings"
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
+            <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
               설정
             </Link>
             <Button asChild size="sm">
@@ -62,12 +54,8 @@ export default async function DashboardPage() {
       <section className="mx-auto max-w-[1100px] px-6 py-12">
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight">
-              지난 피칭
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              총 {rows.length}회의 발표 기록
-            </p>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">지난 피칭</h1>
+            <p className="text-sm text-muted-foreground mt-1">총 {rows.length}회의 발표 기록</p>
           </div>
           <Button asChild>
             <Link href="/pitch/new">
@@ -78,9 +66,7 @@ export default async function DashboardPage() {
 
         {rows.length === 0 ? (
           <div className="rounded-md border border-border-faint border-dashed bg-surface-1 px-8 py-16 text-center">
-            <p className="text-sm text-muted-foreground">
-              아직 피칭이 없습니다.
-            </p>
+            <p className="text-sm text-muted-foreground">아직 피칭이 없습니다.</p>
             <Button asChild className="mt-4">
               <Link href="/pitch/new">첫 피칭 시작하기</Link>
             </Button>
@@ -90,25 +76,17 @@ export default async function DashboardPage() {
             {rows.map((r) => (
               <li key={r.id}>
                 <Link
-                  href={
-                    r.status === "completed"
-                      ? `/pitch/${r.id}/report`
-                      : `/pitch/${r.id}/live`
-                  }
+                  href={r.status === "completed" ? `/pitch/${r.id}/report` : `/pitch/${r.id}/live`}
                   className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4 px-4 py-3 hover:bg-surface-2 transition-colors"
                 >
                   <span
                     className="block h-2 w-2 rounded-full"
                     style={{
                       background:
-                        r.trust_score !== null
-                          ? trustColor(r.trust_score)
-                          : "var(--border)",
+                        r.trust_score !== null ? trustColor(r.trust_score) : "var(--border)",
                     }}
                   />
-                  <span className="truncate text-sm font-medium">
-                    {r.title}
-                  </span>
+                  <span className="truncate text-sm font-medium">{r.title}</span>
                   <Badge
                     variant={
                       r.status === "completed"

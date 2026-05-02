@@ -27,9 +27,7 @@ export class GestureUsageTracker {
     // sliding window: window 채우면 가장 오래된 카운트 1씩 빼기 (대략적 sliding)
     if (this.totalCount > this.windowSize) {
       this.totalCount = this.windowSize;
-      this.aboveCount = Math.floor(
-        (this.aboveCount * (this.windowSize - 1)) / this.windowSize
-      );
+      this.aboveCount = Math.floor((this.aboveCount * (this.windowSize - 1)) / this.windowSize);
     }
   }
 

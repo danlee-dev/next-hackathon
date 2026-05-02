@@ -1,7 +1,7 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
 
 const FILLER_WORDS = [
   "음",
@@ -71,10 +71,7 @@ function highlight(text: string) {
       );
     if (tk.type === "empty")
       return (
-        <span
-          key={i}
-          className="text-trust-mid underline underline-offset-4 decoration-1"
-        >
+        <span key={i} className="text-trust-mid underline underline-offset-4 decoration-1">
           {tk.text}
         </span>
       );

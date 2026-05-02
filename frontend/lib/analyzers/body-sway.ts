@@ -29,8 +29,7 @@ export class BodySwayTracker {
   swayValue(): number {
     if (this.mids.length < 5) return 25;
     const m = this.mids.reduce((a, b) => a + b, 0) / this.mids.length;
-    const v =
-      this.mids.reduce((s, x) => s + (x - m) ** 2, 0) / this.mids.length;
+    const v = this.mids.reduce((s, x) => s + (x - m) ** 2, 0) / this.mids.length;
     const std = Math.sqrt(v);
     return Math.round(clamp(std * 1500, 0, 100));
   }

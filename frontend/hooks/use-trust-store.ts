@@ -1,6 +1,5 @@
 "use client";
 
-import { create } from "zustand";
 import type {
   AggregateMetrics,
   CoachMessage,
@@ -9,6 +8,7 @@ import type {
   ScoreSet,
   SessionTimelineTick,
 } from "@/types/pitch";
+import { create } from "zustand";
 
 interface TrustStore {
   sessionId: string | null;
@@ -112,17 +112,11 @@ export const useTrustStore = create<TrustStore>((set) => ({
         filler_count_total: s.filler_total + ev.length,
       },
     })),
-  setReaction: (r) =>
-    set((s) => ({ reactions: { ...s.reactions, [r.judge_id]: r } })),
+  setReaction: (r) => set((s) => ({ reactions: { ...s.reactions, [r.judge_id]: r } })),
   setCoach: (c) => set({ coach: c }),
   pushTimeline: (t) => set((s) => ({ timeline: [...s.timeline, t] })),
-  appendTranscript: (text) =>
-    set((s) => ({ transcript: (s.transcript + " " + text).trim() })),
+  appendTranscript: (text) => set((s) => ({ transcript: `${s.transcript} ${text}`.trim() })),
 
   tick: (now) =>
-    set((s) =>
-      s.startedAt !== null && s.isLive
-        ? { durationMs: now - s.startedAt }
-        : s
-    ),
+    set((s) => (s.startedAt !== null && s.isLive ? { durationMs: now - s.startedAt } : s)),
 }));

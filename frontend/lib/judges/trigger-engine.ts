@@ -1,11 +1,4 @@
-import type {
-  Expression,
-  Judge,
-  JudgeId,
-  MetricKey,
-  TriggerOp,
-  TriggerRule,
-} from "@/types/judges";
+import type { Expression, Judge, JudgeId, MetricKey, TriggerOp, TriggerRule } from "@/types/judges";
 import { JUDGES } from "./definitions";
 
 export interface TriggerEval {
@@ -32,7 +25,7 @@ function compare(value: number, op: TriggerOp, target: number): boolean {
 
 export function evaluateJudge(
   judge: Judge,
-  metrics: Partial<Record<MetricKey, number>>
+  metrics: Partial<Record<MetricKey, number>>,
 ): TriggerEval {
   let bestRule: TriggerRule | null = null;
   let bestValue: number | null = null;
@@ -67,8 +60,6 @@ export function evaluateJudge(
   };
 }
 
-export function evaluateAllJudges(
-  metrics: Partial<Record<MetricKey, number>>
-): TriggerEval[] {
+export function evaluateAllJudges(metrics: Partial<Record<MetricKey, number>>): TriggerEval[] {
   return JUDGES.map((j) => evaluateJudge(j, metrics));
 }

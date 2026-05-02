@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { ArrowDown, ArrowUp } from "lucide-react";
 import { trustColor, trustLabel } from "@/lib/utils";
+import { ArrowDown, ArrowUp } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 
 interface Props {
   trust: number;
@@ -13,9 +13,7 @@ export function TrustScoreCard({ trust }: Props) {
   const c = trustColor(trust);
   const rounded = Math.round(trust);
   const prevRef = useRef<number>(rounded);
-  const [delta, setDelta] = useState<{ value: number; key: number } | null>(
-    null
-  );
+  const [delta, setDelta] = useState<{ value: number; key: number } | null>(null);
 
   useEffect(() => {
     const prev = prevRef.current;
@@ -34,13 +32,8 @@ export function TrustScoreCard({ trust }: Props) {
       style={{ borderColor: `${c}33` }}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs uppercase tracking-wider text-muted-foreground">
-          신뢰 점수
-        </span>
-        <span
-          className="font-mono text-[10px] uppercase tracking-wider"
-          style={{ color: c }}
-        >
+        <span className="text-xs uppercase tracking-wider text-muted-foreground">신뢰 점수</span>
+        <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: c }}>
           {trustLabel(trust)}
         </span>
       </div>
@@ -69,15 +62,10 @@ export function TrustScoreCard({ trust }: Props) {
               transition={{ duration: 0.7, ease: "easeOut" }}
               className="absolute left-0 top-0 flex items-center gap-0.5 font-mono text-sm font-semibold tabular-nums pointer-events-none"
               style={{
-                color:
-                  delta.value > 0 ? "var(--trust-high)" : "var(--trust-low)",
+                color: delta.value > 0 ? "var(--trust-high)" : "var(--trust-low)",
               }}
             >
-              {delta.value > 0 ? (
-                <ArrowUp className="size-3" />
-              ) : (
-                <ArrowDown className="size-3" />
-              )}
+              {delta.value > 0 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
               {Math.abs(delta.value)}
             </motion.span>
           ) : null}

@@ -1,13 +1,6 @@
 export type JudgeId = "judge-fact" | "judge-connect" | "judge-critical";
 
-export type Expression =
-  | "neutral"
-  | "smile"
-  | "nod"
-  | "frown"
-  | "doubt"
-  | "bored"
-  | "surprised";
+export type Expression = "neutral" | "smile" | "nod" | "frown" | "doubt" | "bored" | "surprised";
 
 export type MetricKey =
   | "eye_contact_ratio"

@@ -1,9 +1,4 @@
-import type {
-  AudioChunkRes,
-  CoachSnapshotRes,
-  CreateSessionRes,
-  FinalizeRes,
-} from "@/types/api";
+import type { AudioChunkRes, CoachSnapshotRes, CreateSessionRes, FinalizeRes } from "@/types/api";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -42,7 +37,7 @@ export async function uploadAudioChunk(
   sessionId: string,
   blob: Blob,
   chunkIndex: number,
-  chunkStartMs: number
+  chunkStartMs: number,
 ): Promise<AudioChunkRes> {
   const fd = new FormData();
   fd.set("audio", blob, `chunk-${chunkIndex}.webm`);
@@ -65,7 +60,7 @@ export async function uploadVisualTick(
     body_sway: number;
     gesture_usage: number;
     smile_naturalness: number;
-  }
+  },
 ): Promise<{ ok: boolean }> {
   const res = await authedFetch(`/api/v1/sessions/${sessionId}/visual-tick`, {
     method: "POST",
@@ -79,15 +74,15 @@ export async function uploadVisualTick(
 export async function coachSnapshot(
   sessionId: string,
   frame: Blob,
-  metricsWindow: Record<string, number>
+  metricsWindow: Record<string, number>,
 ): Promise<CoachSnapshotRes> {
   const fd = new FormData();
   fd.set("frame", frame, "frame.jpg");
   fd.set("metrics_window", JSON.stringify(metricsWindow));
-  const res = await authedFetch(
-    `/api/v1/sessions/${sessionId}/coach-snapshot`,
-    { method: "POST", body: fd }
-  );
+  const res = await authedFetch(`/api/v1/sessions/${sessionId}/coach-snapshot`, {
+    method: "POST",
+    body: fd,
+  });
   if (!res.ok) throw new Error(`coach snapshot failed: ${res.status}`);
   return res.json();
 }
@@ -95,7 +90,7 @@ export async function coachSnapshot(
 export async function finalizeSession(
   sessionId: string,
   transcript: string,
-  durationSeconds: number
+  durationSeconds: number,
 ): Promise<FinalizeRes> {
   const res = await authedFetch(`/api/v1/sessions/${sessionId}/finalize`, {
     method: "POST",

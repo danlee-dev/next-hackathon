@@ -1,7 +1,7 @@
 "use client";
 
-import { motion, AnimatePresence } from "motion/react";
 import type { Expression, JudgeId } from "@/types/judges";
+import { AnimatePresence, motion } from "motion/react";
 
 interface Props {
   judgeId: JudgeId;
@@ -85,9 +85,7 @@ function MouthShape({ expression, accent }: { expression: Expression; accent: st
         />
       );
     case "surprised":
-      return (
-        <ellipse cx="40" cy="58" rx="3" ry="4" fill="currentColor" />
-      );
+      return <ellipse cx="40" cy="58" rx="3" ry="4" fill="currentColor" />;
     default:
       return (
         <line
@@ -127,20 +125,8 @@ function Eyebrows({ expression, accent }: { expression: Expression; accent: stri
   if (expression === "frown" || expression === "doubt") {
     return (
       <>
-        <path
-          d="M22 32 L34 30"
-          stroke={accent}
-          strokeWidth="2"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <path
-          d="M46 30 L58 32"
-          stroke={accent}
-          strokeWidth="2"
-          strokeLinecap="round"
-          fill="none"
-        />
+        <path d="M22 32 L34 30" stroke={accent} strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M46 30 L58 32" stroke={accent} strokeWidth="2" strokeLinecap="round" fill="none" />
       </>
     );
   }
@@ -152,13 +138,7 @@ function Eyebrows({ expression, accent }: { expression: Expression; accent: stri
   );
 }
 
-export function JudgeAvatar({
-  judgeId,
-  expression,
-  accent,
-  size = 64,
-  gazeX = 0,
-}: Props) {
+export function JudgeAvatar({ judgeId, expression, accent, size = 64, gazeX = 0 }: Props) {
   const skin = SKIN[judgeId];
   const hair = HAIR_COLORS[judgeId];
   const acc = ACCESSORIES[judgeId];
@@ -229,9 +209,7 @@ export function JudgeAvatar({
             </g>
           )}
           {/* earring */}
-          {acc === "earring" && (
-            <circle cx="62" cy="48" r="1.2" fill={accent} />
-          )}
+          {acc === "earring" && <circle cx="62" cy="48" r="1.2" fill={accent} />}
           <g style={{ color: "var(--foreground)" }}>
             <MouthShape expression={expression} accent={accent} />
           </g>

@@ -1,11 +1,11 @@
 "use client";
 
 import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
   Radar,
   RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
   ResponsiveContainer,
 } from "recharts";
 
@@ -28,10 +28,7 @@ export function RadarScore({ visual, audio, content, consistency }: Props) {
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart data={data} outerRadius="72%">
           <PolarGrid stroke="var(--border-faint)" />
-          <PolarAngleAxis
-            dataKey="axis"
-            tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-          />
+          <PolarAngleAxis dataKey="axis" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
           <PolarRadiusAxis
             domain={[0, 100]}
             tick={{ fill: "var(--subtle-foreground)", fontSize: 9, fontFamily: "var(--font-mono)" }}

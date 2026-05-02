@@ -1,7 +1,7 @@
 "use client";
 
-import { motion, AnimatePresence } from "motion/react";
-import type { Judge, Expression } from "@/types/judges";
+import type { Expression, Judge } from "@/types/judges";
+import { AnimatePresence, motion } from "motion/react";
 import { JudgeAvatar } from "./judge-avatar";
 
 interface Props {
@@ -18,25 +18,15 @@ export function JudgeCard({ judge, expression, comment, gazeX = 0 }: Props) {
       className="flex items-start gap-3 rounded-md border bg-surface-1 p-3 transition-colors"
       style={{ borderColor: comment ? accent : "var(--border-faint)" }}
     >
-      <JudgeAvatar
-        judgeId={judge.id}
-        expression={expression}
-        accent={accent}
-        gazeX={gazeX}
-      />
+      <JudgeAvatar judgeId={judge.id} expression={expression} accent={accent} gazeX={gazeX} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{judge.nameKo}</span>
-          <span
-            className="font-mono text-[9px] uppercase tracking-wider"
-            style={{ color: accent }}
-          >
+          <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: accent }}>
             {expression}
           </span>
         </div>
-        <p className="text-[11px] text-muted-foreground line-clamp-1">
-          {judge.persona}
-        </p>
+        <p className="text-[11px] text-muted-foreground line-clamp-1">{judge.persona}</p>
         <AnimatePresence mode="wait">
           {comment ? (
             <motion.p

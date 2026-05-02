@@ -31,8 +31,7 @@ export class SmileNaturalnessTracker {
   score(): number {
     if (this.values.length < 5) return 30;
     const mean = this.values.reduce((a, b) => a + b, 0) / this.values.length;
-    const v =
-      this.values.reduce((s, x) => s + (x - mean) ** 2, 0) / this.values.length;
+    const v = this.values.reduce((s, x) => s + (x - mean) ** 2, 0) / this.values.length;
     const std = Math.sqrt(v);
     // sweet spot: mean 0.15 ~ 0.4, std around 0.05~0.15
     const meanScore = clamp(100 - Math.abs(mean - 0.27) * 250, 0, 100);

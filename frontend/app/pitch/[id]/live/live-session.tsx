@@ -1,41 +1,41 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { motion, AnimatePresence } from "motion/react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useMediaPipe } from "@/hooks/use-mediapipe";
-import { useAudioRecorder, type AudioChunkInfo } from "@/hooks/use-audio-recorder";
-import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
-import { useAudioLevel } from "@/hooks/use-audio-level";
-import { useTrustStore } from "@/hooks/use-trust-store";
-import { computeEyeContact } from "@/lib/analyzers/eye-contact";
-import { HeadStabilityTracker } from "@/lib/analyzers/head-stability";
-import { BodySwayTracker } from "@/lib/analyzers/body-sway";
-import { GestureUsageTracker } from "@/lib/analyzers/gesture";
-import { SmileNaturalnessTracker } from "@/lib/analyzers/smile";
-import { EMA } from "@/lib/analyzers/smoothing";
-import { computeAll } from "@/lib/score";
-import { JUDGES } from "@/lib/judges/definitions";
-import { evaluateAllJudges } from "@/lib/judges/trigger-engine";
-import { DemoSimulator } from "@/lib/demo-simulator";
-import {
-  uploadAudioChunk,
-  uploadVisualTick,
-  coachSnapshot,
-  finalizeSession,
-} from "@/lib/api-client";
-import { WebcamCanvas } from "@/components/pitch/webcam-canvas";
-import { TrustScoreCard } from "@/components/pitch/trust-score-card";
-import { MetricsPanel } from "@/components/pitch/metrics-panel";
+import { JudgeCard } from "@/components/judges/judge-card";
 import { CoachMessage } from "@/components/pitch/coach-message";
 import { LiveTranscript } from "@/components/pitch/live-transcript";
-import { JudgeCard } from "@/components/judges/judge-card";
+import { MetricsPanel } from "@/components/pitch/metrics-panel";
+import { TrustScoreCard } from "@/components/pitch/trust-score-card";
+import { WebcamCanvas } from "@/components/pitch/webcam-canvas";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useAudioLevel } from "@/hooks/use-audio-level";
+import { type AudioChunkInfo, useAudioRecorder } from "@/hooks/use-audio-recorder";
+import { useMediaPipe } from "@/hooks/use-mediapipe";
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { useTrustStore } from "@/hooks/use-trust-store";
+import { BodySwayTracker } from "@/lib/analyzers/body-sway";
+import { computeEyeContact } from "@/lib/analyzers/eye-contact";
+import { GestureUsageTracker } from "@/lib/analyzers/gesture";
+import { HeadStabilityTracker } from "@/lib/analyzers/head-stability";
+import { SmileNaturalnessTracker } from "@/lib/analyzers/smile";
+import { EMA } from "@/lib/analyzers/smoothing";
+import {
+  coachSnapshot,
+  finalizeSession,
+  uploadAudioChunk,
+  uploadVisualTick,
+} from "@/lib/api-client";
+import { DemoSimulator } from "@/lib/demo-simulator";
+import { JUDGES } from "@/lib/judges/definitions";
+import { evaluateAllJudges } from "@/lib/judges/trigger-engine";
+import { computeAll } from "@/lib/score";
 import { formatDuration, trustColor } from "@/lib/utils";
-import { Square, Pause, Play, Sparkles } from "lucide-react";
+import { Pause, Play, Sparkles, Square } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface Props {
   sessionId: string;
@@ -56,9 +56,9 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [phase, setPhase] = useState<
-    "arming" | "countdown" | "live" | "paused" | "finalizing"
-  >("arming");
+  const [phase, setPhase] = useState<"arming" | "countdown" | "live" | "paused" | "finalizing">(
+    "arming",
+  );
   const [count, setCount] = useState(COUNTDOWN_S);
   const [interim, setInterim] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -68,8 +68,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
   const lastReactionRef = useRef<Record<string, number>>({});
 
   const trust = useTrustStore();
-  const { metrics, scores, reactions, transcript, coach, durationMs, isLive } =
-    trust;
+  const { metrics, scores, reactions, transcript, coach, durationMs, isLive } = trust;
 
   const headTracker = useMemo(() => new HeadStabilityTracker(), []);
   const swayTracker = useMemo(() => new BodySwayTracker(), []);
@@ -79,10 +78,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
   const simulator = useMemo(() => new DemoSimulator(), []);
 
   // Real-mode hooks (skipped in demo)
-  const mp = useMediaPipe(
-    videoRef,
-    !demoMode && (phase === "live" || phase === "paused")
-  );
+  const mp = useMediaPipe(videoRef, !demoMode && (phase === "live" || phase === "paused"));
   const audioLevel = useAudioLevel(!demoMode && phase === "live");
 
   // Camera + mic stream (real mode only)
@@ -113,9 +109,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         setCameraError("카메라 권한이 거부되었습니다. 데모 모드로 전환합니다.");
         toast.error("카메라 권한이 거부되었습니다. 데모 모드로 전환합니다.");
         setTimeout(() => {
-          router.replace(
-            `/pitch/${sessionId}/live?title=${encodeURIComponent(title)}&demo=1`
-          );
+          router.replace(`/pitch/${sessionId}/live?title=${encodeURIComponent(title)}&demo=1`);
         }, 1200);
       }
     })();
@@ -177,9 +171,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
       });
       if (t.transcript_addition) trust.appendTranscript(t.transcript_addition);
       if (t.filler_event) {
-        trust.pushFillerEvents([
-          { word: t.filler_event.word, ts_ms: Math.round(t.ts_ms) },
-        ]);
+        trust.pushFillerEvents([{ word: t.filler_event.word, ts_ms: Math.round(t.ts_ms) }]);
       }
 
       // judge evaluation w/ debounce
@@ -199,11 +191,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         const last = lastReactionRef.current[ev.judgeId] ?? 0;
         if (now - last < 1500) continue;
         const prev = trust.reactions[ev.judgeId];
-        if (
-          prev?.expression === ev.expression &&
-          prev?.comment === ev.comment
-        )
-          continue;
+        if (prev?.expression === ev.expression && prev?.comment === ev.comment) continue;
         lastReactionRef.current[ev.judgeId] = now;
         trust.setReaction({
           judge_id: ev.judgeId,
@@ -218,10 +206,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
       // periodic demo coach line
       if (now - lastCoachRef.current > 8000 && Math.random() < 0.4) {
         lastCoachRef.current = now;
-        const line =
-          DEMO_COACH_LINES[
-            Math.floor(Math.random() * DEMO_COACH_LINES.length)
-          ];
+        const line = DEMO_COACH_LINES[Math.floor(Math.random() * DEMO_COACH_LINES.length)];
         trust.setCoach({ text: line, ts_ms: t.ts_ms });
       }
 
@@ -305,11 +290,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         const last = lastReactionRef.current[ev.judgeId] ?? 0;
         if (now - last < 1500) continue;
         const prev = trust.reactions[ev.judgeId];
-        if (
-          prev?.expression === ev.expression &&
-          prev?.comment === ev.comment
-        )
-          continue;
+        if (prev?.expression === ev.expression && prev?.comment === ev.comment) continue;
         lastReactionRef.current[ev.judgeId] = now;
         trust.setReaction({
           judge_id: ev.judgeId,
@@ -352,20 +333,14 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
   const onAudioChunk = useCallback(
     async (blob: Blob, info: AudioChunkInfo) => {
       try {
-        const res = await uploadAudioChunk(
-          sessionId,
-          blob,
-          info.index,
-          info.startMs
-        );
+        const res = await uploadAudioChunk(sessionId, blob, info.index, info.startMs);
         if (res.transcript_partial) {
           trust.appendTranscript(res.transcript_partial);
         }
         if (res.filler_words_found?.length) {
           trust.pushFillerEvents(res.filler_words_found);
           const totalMin = Math.max(durationMs / 60000, 1 / 60);
-          const fillerPerMin =
-            (trust.filler_total + res.filler_words_found.length) / totalMin;
+          const fillerPerMin = (trust.filler_total + res.filler_words_found.length) / totalMin;
           trust.updateMetrics({
             filler_count_per_min: fillerPerMin,
             pace_cpm: res.pace_cpm,
@@ -383,7 +358,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         // backend not available — silently degrade
       }
     },
-    [sessionId, trust, durationMs]
+    [sessionId, trust, durationMs],
   );
 
   useAudioRecorder(!demoMode && phase === "live", onAudioChunk);
@@ -412,9 +387,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         const ctx = cnv.getContext("2d");
         if (!ctx) return;
         ctx.drawImage(v, 0, 0, cnv.width, cnv.height);
-        const blob = await new Promise<Blob | null>((res) =>
-          cnv.toBlob(res, "image/jpeg", 0.7)
-        );
+        const blob = await new Promise<Blob | null>((res) => cnv.toBlob(res, "image/jpeg", 0.7));
         if (!blob) return;
         const r = await coachSnapshot(sessionId, blob, {
           eye_contact_ratio: trust.metrics.eye_contact_ratio,
@@ -439,11 +412,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
     trust.stop();
     if (!demoMode) {
       try {
-        await finalizeSession(
-          sessionId,
-          transcript,
-          Math.round(durationMs / 1000)
-        );
+        await finalizeSession(sessionId, transcript, Math.round(durationMs / 1000));
       } catch {
         // backend가 없으면 로컬 모드 — 점수만 저장
       }
@@ -452,9 +421,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
       await new Promise((r) => setTimeout(r, 2600));
     }
     trust.endFinalize();
-    router.push(
-      `/pitch/${sessionId}/report${demoMode ? "?demo=1" : ""}`
-    );
+    router.push(`/pitch/${sessionId}/report${demoMode ? "?demo=1" : ""}`);
   }
 
   function pause() {
@@ -495,9 +462,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
           >
             ←
           </Link>
-          <span className="font-mono text-xs text-subtle-foreground hidden sm:inline">
-            세션
-          </span>
+          <span className="font-mono text-xs text-subtle-foreground hidden sm:inline">세션</span>
           <span className="text-sm font-medium truncate">{title}</span>
           {demoMode ? (
             <Badge variant="primary" className="hidden sm:inline-flex">
@@ -547,9 +512,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
                   trustColor={trustColor(scores.trust)}
                 />
               )}
-              {phase === "countdown" && (
-                <CountdownOverlay count={count} />
-              )}
+              {phase === "countdown" && <CountdownOverlay count={count} />}
               {phase === "arming" && (
                 <ArmingOverlay
                   ready={demoMode || mp.ready}
@@ -570,9 +533,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
               <Activity active={isLive} /> 분석 활성
-              {demoMode ? (
-                <span className="ml-2 text-primary">SIMULATED</span>
-              ) : null}
+              {demoMode ? <span className="ml-2 text-primary">SIMULATED</span> : null}
             </div>
             <div className="flex items-center gap-2">
               {phase === "live" ? (
@@ -644,16 +605,14 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
           transition={{ duration: 0.18, ease: "easeOut" }}
           style={{
             background: `linear-gradient(90deg, transparent, ${trustColor(
-              scores.trust
+              scores.trust,
             )}, transparent)`,
           }}
         />
       </div>
 
       {/* finalizing overlay */}
-      <AnimatePresence>
-        {phase === "finalizing" && <FinalizingOverlay />}
-      </AnimatePresence>
+      <AnimatePresence>{phase === "finalizing" && <FinalizingOverlay />}</AnimatePresence>
     </main>
   );
 }
@@ -709,7 +668,7 @@ function ArmingOverlay({
                 animate={{ opacity: [0.3, 1, 0.3] }}
                 transition={{
                   duration: 1.2,
-                  repeat: Infinity,
+                  repeat: Number.POSITIVE_INFINITY,
                   delay: i * 0.15,
                 }}
               />
@@ -739,10 +698,7 @@ function DemoCanvas({ trust }: { trust: number }) {
         preserveAspectRatio="xMidYMid meet"
       >
         <ellipse cx="200" cy="125" rx="44" ry="52" fill="var(--surface-3)" />
-        <path
-          d="M120 300 Q120 200 200 200 Q280 200 280 300 Z"
-          fill="var(--surface-3)"
-        />
+        <path d="M120 300 Q120 200 200 200 Q280 200 280 300 Z" fill="var(--surface-3)" />
         {/* eye ovals */}
         <ellipse cx="186" cy="120" rx="3" ry="3" fill={c} />
         <ellipse cx="214" cy="120" rx="3" ry="3" fill={c} />
@@ -752,9 +708,7 @@ function DemoCanvas({ trust }: { trust: number }) {
           const r = 38 + (i % 5) * 4;
           const x = 200 + Math.cos(angle) * r;
           const y = 125 + Math.sin(angle) * r * 1.05;
-          return (
-            <circle key={i} cx={x} cy={y} r="0.7" fill={c} opacity={0.5} />
-          );
+          return <circle key={i} cx={x} cy={y} r="0.7" fill={c} opacity={0.5} />;
         })}
       </svg>
       <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-sm border border-border-faint bg-background/70 px-2 py-1 backdrop-blur-md">
@@ -774,10 +728,7 @@ function MiniScore({ label, value }: { label: string; value: number }) {
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
         {label}
       </div>
-      <div
-        className="font-mono text-2xl font-semibold tabular-nums"
-        style={{ color: c }}
-      >
+      <div className="font-mono text-2xl font-semibold tabular-nums" style={{ color: c }}>
         {Math.round(value)}
       </div>
     </div>
@@ -801,10 +752,7 @@ function FinalizingOverlay() {
   ];
   const [shown, setShown] = useState(0);
   useEffect(() => {
-    const id = window.setInterval(
-      () => setShown((s) => Math.min(s + 1, lines.length)),
-      500
-    );
+    const id = window.setInterval(() => setShown((s) => Math.min(s + 1, lines.length)), 500);
     return () => window.clearInterval(id);
   }, []);
   return (
@@ -815,14 +763,9 @@ function FinalizingOverlay() {
       className="absolute inset-0 z-30 grid place-items-center bg-background/95 backdrop-blur-md"
     >
       <div className="rounded-md border border-border-faint bg-surface-1 px-6 py-5 font-mono text-xs">
-        <div className="text-primary mb-3 uppercase tracking-wider">
-          [trust-engine] finalize
-        </div>
+        <div className="text-primary mb-3 uppercase tracking-wider">[trust-engine] finalize</div>
         {lines.slice(0, shown).map((l, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-2 text-muted-foreground"
-          >
+          <div key={i} className="flex items-center gap-2 text-muted-foreground">
             <span className="text-trust-high">›</span> {l}{" "}
             {i < shown - 1 ? (
               <span className="text-trust-high">[done]</span>

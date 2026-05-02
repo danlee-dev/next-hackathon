@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import {
   FaceLandmarker,
-  PoseLandmarker,
-  FilesetResolver,
   type FaceLandmarkerResult,
+  FilesetResolver,
+  PoseLandmarker,
   type PoseLandmarkerResult,
 } from "@mediapipe/tasks-vision";
+import { useEffect, useRef, useState } from "react";
 
 export interface MediaPipeFrame {
   face: FaceLandmarkerResult | null;
@@ -21,10 +21,7 @@ const FACE_MODEL =
 const POSE_MODEL =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
-export function useMediaPipe(
-  videoRef: React.RefObject<HTMLVideoElement | null>,
-  enabled: boolean = true
-) {
+export function useMediaPipe(videoRef: React.RefObject<HTMLVideoElement | null>, enabled = true) {
   const faceRef = useRef<FaceLandmarker | null>(null);
   const poseRef = useRef<PoseLandmarker | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -83,12 +80,7 @@ export function useMediaPipe(
 
     const tick = () => {
       const v = videoRef.current;
-      if (
-        v &&
-        v.readyState >= 2 &&
-        faceRef.current &&
-        poseRef.current
-      ) {
+      if (v && v.readyState >= 2 && faceRef.current && poseRef.current) {
         const ts = performance.now();
         if (ts - lastTs > 33) {
           try {

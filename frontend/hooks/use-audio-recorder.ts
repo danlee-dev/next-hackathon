@@ -11,15 +11,15 @@ export interface AudioChunkInfo {
 
 export function useAudioRecorder(
   enabled: boolean,
-  onChunk: (blob: Blob, info: AudioChunkInfo) => void
+  onChunk: (blob: Blob, info: AudioChunkInfo) => void,
 ) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const indexRef = useRef(0);
   const startedAtRef = useRef(0);
-  const [state, setState] = useState<
-    "idle" | "requesting" | "recording" | "stopped" | "error"
-  >("idle");
+  const [state, setState] = useState<"idle" | "requesting" | "recording" | "stopped" | "error">(
+    "idle",
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,8 +44,7 @@ export function useAudioRecorder(
         streamRef.current = stream;
 
         const mime =
-          MediaRecorder.isTypeSupported("audio/webm;codecs=opus") &&
-          "audio/webm;codecs=opus";
+          MediaRecorder.isTypeSupported("audio/webm;codecs=opus") && "audio/webm;codecs=opus";
         const recorder = mime
           ? new MediaRecorder(stream, { mimeType: mime })
           : new MediaRecorder(stream);
@@ -76,8 +75,7 @@ export function useAudioRecorder(
     return () => {
       cancelled = true;
       try {
-        recorderRef.current?.state === "recording" &&
-          recorderRef.current?.stop();
+        recorderRef.current?.state === "recording" && recorderRef.current?.stop();
       } catch {}
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;

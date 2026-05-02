@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Camera, Mic, ArrowRight, Check, AlertCircle } from "lucide-react";
 import { createSession } from "@/lib/api-client";
 import { createClient } from "@/lib/supabase/client";
+import { AlertCircle, ArrowRight, Camera, Check, Mic } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Permission = "idle" | "ok" | "denied";
 
@@ -108,16 +108,8 @@ export default function NewPitchPage() {
         </div>
 
         <div className="mt-6 grid gap-2">
-          <PermissionRow
-            icon={<Camera className="size-4" />}
-            label="카메라"
-            state={camPerm}
-          />
-          <PermissionRow
-            icon={<Mic className="size-4" />}
-            label="마이크"
-            state={micPerm}
-          />
+          <PermissionRow icon={<Camera className="size-4" />} label="카메라" state={camPerm} />
+          <PermissionRow icon={<Mic className="size-4" />} label="마이크" state={micPerm} />
         </div>
 
         <div className="mt-6 flex flex-col gap-3">

@@ -47,10 +47,7 @@ interface Options {
   onFinal?: (text: string) => void;
 }
 
-export function useSpeechRecognition(
-  enabled: boolean,
-  { onInterim, onFinal }: Options = {}
-) {
+export function useSpeechRecognition(enabled: boolean, { onInterim, onFinal }: Options = {}) {
   const ref = useRef<SpeechRecognition | null>(null);
   const [supported, setSupported] = useState(true);
   const [active, setActive] = useState(false);
