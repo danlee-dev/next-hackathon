@@ -110,16 +110,24 @@ async def finalize(
 
     result = await run_analysis(transcript, audio, visual, context)
     content_eval = result.get("content_evaluation", {})
+    insufficient = bool(result.get("insufficient_input"))
 
-    merged_metrics = {
-        **audio,
-        **visual,
-        "core_message_clarity": content_eval.get("core_message_clarity", 60),
-        "argument_evidence_balance": content_eval.get("argument_evidence_balance", 60),
-        "empty_phrases_count": content_eval.get("empty_phrases_count", 0),
-        "audience_comprehension": content_eval.get("audience_comprehension", 60),
-    }
-    scores = all_scores(merged_metrics)
+    if insufficient:
+        # 정직하게 0 점. 가짜 평가 X.
+        scores = {"trust": 0.0, "visual": 0.0, "audio": 0.0, "content": 0.0}
+        merged_metrics = {**audio, **visual}
+    else:
+        merged_metrics = {
+            **audio,
+            **visual,
+            "core_message_clarity": content_eval.get("core_message_clarity", 60),
+            "argument_evidence_balance": content_eval.get(
+                "argument_evidence_balance", 60
+            ),
+            "empty_phrases_count": content_eval.get("empty_phrases_count", 0),
+            "audience_comprehension": content_eval.get("audience_comprehension", 60),
+        }
+        scores = all_scores(merged_metrics)
 
     # judge_reports — full structured payload per judge (score + comment + quote + correction)
     judge_reports: dict = {}

@@ -115,6 +115,8 @@ def format_context_block(context: dict | None) -> str:
     deck = (context.get("deck_text") or "").strip()
     criteria = (context.get("judging_criteria") or "").strip()
 
+    external_research = (context.get("external_research") or "").strip()
+
     parts: list[str] = []
     if criteria:
         parts.append(
@@ -136,10 +138,10 @@ def format_context_block(context: dict | None) -> str:
             f"{deck[:3000]}"
         )
 
-    if not parts:
+    if not parts and not external_research:
         return ""
 
-    return (
+    block = (
         "\n\n=== 사전 컨텍스트 (반드시 활용) ===\n"
         + "\n\n".join(parts)
         + "\n=== 사전 컨텍스트 끝 ===\n\n"
@@ -147,6 +149,9 @@ def format_context_block(context: dict | None) -> str:
         "예: 덱에 'TAM 50조' 가 있는데 발표에서 '시장 큽니다'로 뭉뚱그렸다면 "
         "그 차이를 지적합니다. 심사 기준이 있으면 그 기준에 직접 맵핑합니다.\n"
     )
+    if external_research:
+        block += "\n" + external_research + "\n"
+    return block
 
 
 # ============================================================================
