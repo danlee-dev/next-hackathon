@@ -46,6 +46,18 @@ app.include_router(qna.router, prefix=API_PREFIX, tags=["qna"])
 app.include_router(realtime.router, prefix=API_PREFIX, tags=["realtime"])
 
 
+@app.on_event("startup")
+async def _on_startup() -> None:
+    """Pre-synthesize the scripted heckle voices so transcript-delta hits
+    return audio with zero ElevenLabs latency."""
+    try:
+        from app.services.heckle import warm_scripted_voice_cache
+
+        await warm_scripted_voice_cache()
+    except Exception:
+        logger.exception("[startup] heckle voice warm-up failed")
+
+
 @app.get("/")
 def root() -> dict[str, str]:
     return {"service": "trustpitch", "status": "ok"}

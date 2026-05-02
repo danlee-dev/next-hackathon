@@ -128,6 +128,14 @@ export async function createRealtimeSession(): Promise<RealtimeSessionRes> {
   return res.json();
 }
 
+export interface TriggeredHeckle {
+  judge_id: "judge-fact" | "judge-connect" | "judge-critical";
+  judge_name: string;
+  text: string;
+  voice_b64?: string | null;
+  rule_id: string;
+}
+
 export interface TranscriptDeltaRes {
   transcript: string;
   filler_count_delta: number;
@@ -139,6 +147,7 @@ export interface TranscriptDeltaRes {
   visual_score: number;
   audio_score: number;
   content_score: number;
+  triggered_heckle?: TriggeredHeckle | null;
 }
 
 export async function postTranscriptDelta(

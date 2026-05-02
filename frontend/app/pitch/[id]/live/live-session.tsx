@@ -21,7 +21,6 @@ import { EMA } from "@/lib/analyzers/smoothing";
 import {
   coachSnapshot,
   createRealtimeSession,
-  fetchHeckle,
   fetchLiveReaction,
   finalizeSession,
   postTranscriptDelta,
@@ -421,6 +420,35 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
             audio: res.audio_score,
             content: res.content_score,
           });
+
+          // Scripted heckle fired by a keyword in this delta — play
+          // immediately. There is no time-based heckle path; this is the
+          // ONLY way the AI judges interrupt the speaker.
+          const th = res.triggered_heckle;
+          if (th) {
+            console.info("[heckle] scripted fire", th.rule_id, th.judge_id);
+            trust.setReaction({
+              judge_id: th.judge_id,
+              expression: th.rule_id === "global_expansion_validated" ? "nod" : "doubt",
+              comment: th.text,
+              ts_ms: Math.round(durationMs),
+            });
+            setHeckleFlash((k) => k + 1);
+            if (th.voice_b64) {
+              try {
+                heckleAudioRef.current?.pause();
+              } catch {}
+              const audio = new Audio(`data:audio/mpeg;base64,${th.voice_b64}`);
+              heckleAudioRef.current = audio;
+              audio.volume = 1.0;
+              audio.play().catch((err) => {
+                console.warn("[heckle] audio play blocked", err);
+                toast.warning("브라우저가 자동재생을 막았어요. 화면을 한 번 클릭해주세요.");
+              });
+            } else {
+              console.warn("[heckle] no voice_b64 from /transcript-delta");
+            }
+          }
         })
         .catch(() => {
           // backend transcript-delta down — interim/final still rendered
@@ -471,95 +499,13 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
     return () => window.clearInterval(id);
   }, [demoMode, phase, sessionId, trust, durationMs]);
 
-  // === HECKLE — 발표 중간에 VC 스타일 태클 (음성 + 화면 강조) ===
-  // 첫 발사: 발표 시작 60초 후. 이후 45-75초 랜덤 간격. 일시정지/종료 시 멈춤.
+  // Heckles are now ONLY triggered by keyword-matched scripted rules in
+  // /transcript-delta — the moment the speaker says one of the trigger
+  // phrases, backend returns the pre-cached ElevenLabs audio inline and the
+  // onCompleted handler plays it (see useRealtimeTranscription wiring above).
+  // No time-based scheduler — exactly two heckles fire per session, in the
+  // demo-script order.
   const heckleAudioRef = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    if (demoMode || phase !== "live") return;
-    let cancelled = false;
-    let timer: number | null = null;
-
-    const playHeckle = async () => {
-      if (cancelled) return;
-      // Don't fire a heckle until the speaker has actually said enough that
-      // the LLM has real context. Otherwise the backend falls back to a
-      // generic VC line ("경쟁사가 내일 따라하면...") that lands awkwardly
-      // before the speaker has even introduced the company.
-      const transcriptLen = (useTrustStore.getState().transcript || "").length;
-      if (transcriptLen < 80) {
-        console.info("[heckle] skipping — transcript too short", transcriptLen);
-        return;
-      }
-      console.info("[heckle] firing");
-      try {
-        const r = await fetchHeckle(sessionId);
-        if (cancelled) return;
-        if (r.silent) {
-          // Judge decided not to interject — speaker just answered something
-          // or there's nothing new since the last question. Stay quiet.
-          console.info("[heckle] silent — judge declined", r.judge_id);
-          return;
-        }
-        console.info("[heckle] got", {
-          judge: r.judge_id,
-          text: r.text,
-          hasVoice: !!r.voice_b64,
-        });
-        trust.setReaction({
-          judge_id: r.judge_id,
-          expression: "doubt",
-          comment: r.text,
-          ts_ms: durationMs,
-        });
-        setHeckleFlash((k) => k + 1);
-        if (r.voice_b64) {
-          try {
-            heckleAudioRef.current?.pause();
-          } catch {}
-          const audio = new Audio(`data:audio/mpeg;base64,${r.voice_b64}`);
-          heckleAudioRef.current = audio;
-          audio.volume = 1.0;
-          audio.play().catch((err) => {
-            console.warn("[heckle] audio play blocked", err);
-            toast.warning("브라우저가 자동재생을 막았어요. 화면을 한 번 클릭해주세요.");
-          });
-        } else {
-          console.warn("[heckle] no voice_b64 — ElevenLabs key missing or failed");
-          toast.warning(`태클이 들어왔지만 음성이 없어요: "${r.text}"`);
-        }
-      } catch (err) {
-        console.warn("[heckle] fetch failed", err);
-        toast.error("태클 호출 실패 — 콘솔 확인");
-      }
-    };
-
-    const scheduleNext = () => {
-      if (cancelled) return;
-      const delay = 30_000 + Math.floor(Math.random() * 20_000);
-      console.info(`[heckle] next in ${Math.round(delay / 1000)}s`);
-      timer = window.setTimeout(async () => {
-        await playHeckle();
-        scheduleNext();
-      }, delay);
-    };
-
-    // First heckle 25s in (down from 60s) so the speaker doesn't wait long.
-    console.info("[heckle] scheduler armed — first heckle in 25s");
-    timer = window.setTimeout(async () => {
-      await playHeckle();
-      scheduleNext();
-    }, 25_000);
-
-    return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
-      try {
-        heckleAudioRef.current?.pause();
-      } catch {}
-      heckleAudioRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demoMode, phase, sessionId]);
 
   // 10s coach (real mode)
   useEffect(() => {

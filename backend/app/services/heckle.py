@@ -135,6 +135,40 @@ def _normalize(s: str) -> str:
     return "".join(out)
 
 
+# Pre-warmed ElevenLabs cache. The two scripted lines are synthesized once
+# at server startup so transcript-delta hits return audio without waiting
+# 1-3s on a fresh ElevenLabs round trip.
+SCRIPTED_VOICE_CACHE: dict[str, Optional[str]] = {}
+
+
+async def warm_scripted_voice_cache() -> None:
+    """Synthesize each scripted line eagerly so live triggers are instant.
+
+    Called from FastAPI startup. Failures are logged but non-fatal — a cache
+    miss simply means the live path will synthesize on demand.
+    """
+    from app.services.elevenlabs_voice import synthesize  # local to avoid cycle
+
+    for rule in SCRIPTED_HECKLES:
+        rid = rule["id"]
+        if SCRIPTED_VOICE_CACHE.get(rid):
+            continue
+        try:
+            voice = await synthesize(rule["text"], rule["judge_id"])
+            SCRIPTED_VOICE_CACHE[rid] = voice
+            if voice:
+                logger.info(
+                    "[heckle] warmed scripted voice id=%s judge=%s bytes=%d",
+                    rid,
+                    rule["judge_id"],
+                    len(voice),
+                )
+            else:
+                logger.warning("[heckle] warm cache produced no audio for %s", rid)
+        except Exception:
+            logger.exception("[heckle] warm cache failed for %s", rid)
+
+
 def find_scripted_heckle(
     transcript: str,
     recent_judges: Optional[list[str]] = None,

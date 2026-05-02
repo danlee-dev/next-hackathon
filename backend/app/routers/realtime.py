@@ -26,7 +26,11 @@ from app.deps import get_user_id
 from app.routers.sessions import session_state
 from app.services.elevenlabs_voice import synthesize
 from app.services.filler_detector import detect_empty_phrases, detect_fillers
-from app.services.heckle import find_scripted_heckle, generate_heckle
+from app.services.heckle import (
+    SCRIPTED_VOICE_CACHE,
+    find_scripted_heckle,
+    generate_heckle,
+)
 from app.services.scoring import all_scores
 
 logger = logging.getLogger(__name__)
@@ -68,12 +72,26 @@ async def create_realtime_session(user_id: str = Depends(get_user_id)) -> Epheme
                     "transcription": {
                         "model": "gpt-4o-mini-transcribe",
                         "language": "ko",
+                        # Critical for the demo: we use filler frequency
+                        # ('음', '어', '아', '그', '그러니까' …) as a live
+                        # metric, so the model must transcribe verbatim and
+                        # NOT politely strip them out.
+                        "prompt": (
+                            "발화를 한국어 그대로 받아쓴다. "
+                            "필러어('음', '어', '아', '그', '그러니까', "
+                            "'약간', '뭐', '이제', '근데')와 "
+                            "말 더듬, 망설임을 빠뜨리지 말고 들리는 그대로 적는다. "
+                            "문장 정리·요약·생략 금지."
+                        ),
                     },
+                    # Tight VAD so utterance boundaries fire fast — the AI
+                    # judges can interject within ~250ms of the speaker
+                    # finishing a sentence.
                     "turn_detection": {
                         "type": "server_vad",
                         "threshold": 0.5,
                         "prefix_padding_ms": 300,
-                        "silence_duration_ms": 500,
+                        "silence_duration_ms": 250,
                     },
                 }
             },
@@ -123,6 +141,14 @@ class TranscriptDeltaReq(BaseModel):
     is_final: bool = False
 
 
+class TriggeredHeckle(BaseModel):
+    judge_id: str
+    judge_name: str
+    text: str
+    voice_b64: Optional[str] = None
+    rule_id: str
+
+
 class TranscriptDeltaRes(BaseModel):
     transcript: str
     filler_count_delta: int
@@ -134,6 +160,10 @@ class TranscriptDeltaRes(BaseModel):
     visual_score: float
     audio_score: float
     content_score: float
+    # Set when this delta triggered a scripted heckle (one-shot per rule).
+    # Frontend plays voice_b64 immediately and renders the chip; otherwise
+    # nothing happens — there is no time-based heckle path.
+    triggered_heckle: Optional[TriggeredHeckle] = None
 
 
 @router.post("/sessions/{session_id}/transcript-delta", response_model=TranscriptDeltaRes)
@@ -182,6 +212,36 @@ async def transcript_delta(
 
     scores = all_scores(state["audio_metrics_running"] | state.get("visual_last", {}))
 
+    # Scripted heckle dispatch — fire the rehearsed line at the exact moment
+    # its keyword(s) appear, regardless of any time scheduler. Each rule
+    # fires at most once per session.
+    triggered: Optional[TriggeredHeckle] = None
+    used_ids: set[str] = state.setdefault("heckle_scripted_used", set())
+    scripted = find_scripted_heckle(new_transcript, used_ids=used_ids)
+    if scripted is not None:
+        s_judge, s_text, s_rule = scripted
+        used_ids.add(s_rule)
+        # Hit the pre-warmed cache first (set at startup) for zero-latency
+        # delivery; synthesize on the fly only if the warm step missed.
+        s_voice = SCRIPTED_VOICE_CACHE.get(s_rule)
+        if not s_voice:
+            s_voice = await synthesize(s_text, s_judge)
+            if s_voice:
+                SCRIPTED_VOICE_CACHE[s_rule] = s_voice
+        if s_voice is None:
+            logger.warning(
+                "[transcript-delta] scripted heckle %s: ElevenLabs returned no audio",
+                s_rule,
+            )
+        triggered = TriggeredHeckle(
+            judge_id=s_judge,
+            judge_name=_JUDGE_NAME[s_judge],
+            text=s_text,
+            voice_b64=s_voice,
+            rule_id=s_rule,
+        )
+        logger.info("[transcript-delta] scripted fire id=%s judge=%s", s_rule, s_judge)
+
     return TranscriptDeltaRes(
         transcript=new_transcript,
         filler_count_delta=len(fillers),
@@ -193,6 +253,7 @@ async def transcript_delta(
         visual_score=scores.get("visual", 0.0),
         audio_score=scores.get("audio", 0.0),
         content_score=scores.get("content", 0.0),
+        triggered_heckle=triggered,
     )
 
 

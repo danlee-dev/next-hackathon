@@ -133,12 +133,25 @@ export function useRealtimeTranscription(enabled: boolean, opts: Options) {
                     transcription: {
                       model: "gpt-4o-mini-transcribe",
                       language: "ko",
+                      // Verbatim transcription — keep filler words ('음',
+                      // '어', '아', '그', '그러니까') intact so the live
+                      // filler-rate metric reflects what the speaker
+                      // actually said. The model otherwise tends to
+                      // "clean up" the speech.
+                      prompt:
+                        "발화를 한국어 그대로 받아쓴다. " +
+                        "필러어('음', '어', '아', '그', '그러니까', '약간', '뭐', '이제', '근데')와 " +
+                        "말 더듬, 망설임을 빠뜨리지 말고 들리는 그대로 적는다. " +
+                        "문장 정리·요약·생략 금지.",
                     },
                     turn_detection: {
                       type: "server_vad",
                       threshold: 0.5,
                       prefix_padding_ms: 300,
-                      silence_duration_ms: 500,
+                      // Tight silence window so utterance boundaries fire
+                      // fast — the speaker barely pauses before the AI judge
+                      // can interject on a matched scripted line.
+                      silence_duration_ms: 250,
                     },
                   },
                 },
