@@ -363,15 +363,24 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
   // utterances (white, canonical). Backend filler / pace / judge analysis
   // runs on each completed utterance via /transcript-delta.
   const interimBufferRef = useRef("");
+  // Drives the judge "listening" halo. Set true on every interim delta and
+  // auto-clears after 1.6s of silence so the panel only glows while active speech.
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const speakingTimerRef = useRef<number | null>(null);
   useRealtimeTranscription(!demoMode && phase === "live", {
     fetchSession: createRealtimeSession,
     onDelta: (delta) => {
       interimBufferRef.current += delta;
       setInterim(interimBufferRef.current);
+      setIsSpeaking(true);
+      if (speakingTimerRef.current) window.clearTimeout(speakingTimerRef.current);
+      speakingTimerRef.current = window.setTimeout(() => setIsSpeaking(false), 1600);
     },
     onCompleted: (text) => {
       interimBufferRef.current = "";
       setInterim("");
+      if (speakingTimerRef.current) window.clearTimeout(speakingTimerRef.current);
+      speakingTimerRef.current = window.setTimeout(() => setIsSpeaking(false), 800);
       const clean = text.trim();
       if (!clean) return;
       trust.appendTranscript(clean);
@@ -641,7 +650,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         {/* right */}
         <aside className="flex flex-col gap-3 border-t border-white/8 p-5 lg:border-l lg:border-t-0 lg:overflow-y-auto">
           <div className="flex flex-col gap-2">
-            {JUDGES.map((j) => {
+            {JUDGES.map((j, i) => {
               const r = reactions[j.id];
               return (
                 <JudgeCard
@@ -650,6 +659,8 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
                   expression={r?.expression ?? j.defaultExpression}
                   comment={r?.comment ?? null}
                   gazeX={gazeX}
+                  listening={isSpeaking && phase === "live"}
+                  index={i}
                 />
               );
             })}

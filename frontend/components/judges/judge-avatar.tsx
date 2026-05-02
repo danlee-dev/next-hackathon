@@ -1,7 +1,8 @@
 "use client";
 
 import type { Expression, JudgeId } from "@/types/judges";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useAnimationControls } from "motion/react";
+import { useEffect } from "react";
 
 interface Props {
   judgeId: JudgeId;
@@ -10,6 +11,8 @@ interface Props {
   size?: number;
   /** -1..1 horizontal gaze offset (e.g. eye-tracking) */
   gazeX?: number;
+  /** When true, the speaker is currently talking and the judge is "listening" */
+  listening?: boolean;
 }
 
 const HAIR_COLORS: Record<JudgeId, string> = {
@@ -138,7 +141,14 @@ function Eyebrows({ expression, accent }: { expression: Expression; accent: stri
   );
 }
 
-export function JudgeAvatar({ judgeId, expression, accent, size = 64, gazeX = 0 }: Props) {
+export function JudgeAvatar({
+  judgeId,
+  expression,
+  accent,
+  size = 64,
+  gazeX = 0,
+  listening = false,
+}: Props) {
   const skin = SKIN[judgeId];
   const hair = HAIR_COLORS[judgeId];
   const acc = ACCESSORIES[judgeId];
@@ -147,8 +157,48 @@ export function JudgeAvatar({ judgeId, expression, accent, size = 64, gazeX = 0 
   const eyeY = expression === "bored" ? 41 : 40;
   const lidH = expression === "bored" ? 1.5 : 0;
 
+  // Random natural blink — every 4-7s, scale eyes vertically to ~0 for 120ms.
+  const blink = useAnimationControls();
+  useEffect(() => {
+    let cancelled = false;
+    const loop = async () => {
+      while (!cancelled) {
+        const wait = 4000 + Math.random() * 3000;
+        await new Promise((r) => setTimeout(r, wait));
+        if (cancelled) return;
+        try {
+          await blink.start({ scaleY: 0.05, transition: { duration: 0.07 } });
+          await blink.start({ scaleY: 1, transition: { duration: 0.09 } });
+        } catch {}
+      }
+    };
+    loop();
+    return () => {
+      cancelled = true;
+    };
+  }, [blink]);
+
   return (
-    <div className="relative" style={{ width: size, height: size }}>
+    <motion.div
+      className="relative"
+      style={{ width: size, height: size }}
+      // Subtle breathing — barely-noticeable scale so the avatar reads as alive.
+      animate={{ scale: [1, 1.018, 1] }}
+      transition={{ duration: 4.2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+    >
+      {/* Listening halo — slow soft pulse around the avatar while the speaker
+          is talking. Tells the speaker the judges are paying attention. */}
+      {listening ? (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-md"
+          style={{ boxShadow: `0 0 0 0 ${accent}` }}
+          animate={{
+            boxShadow: [`0 0 0 0 ${accent}33`, `0 0 12px 2px ${accent}55`, `0 0 0 0 ${accent}33`],
+          }}
+          transition={{ duration: 2.4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+        />
+      ) : null}
       <AnimatePresence mode="wait">
         <motion.svg
           key={expression}
@@ -184,12 +234,14 @@ export function JudgeAvatar({ judgeId, expression, accent, size = 64, gazeX = 0 
             fill={hair}
           />
           <Eyebrows expression={expression} accent={accent} />
-          {/* eyes */}
-          <ellipse cx="30" cy={eyeY} rx="3" ry={3 - lidH} fill="var(--foreground)" />
-          <ellipse cx="50" cy={eyeY} rx="3" ry={3 - lidH} fill="var(--foreground)" />
-          {/* pupils with gaze */}
-          <circle cx={30 + eyeOffset} cy={eyeY} r="1.4" fill={accent} />
-          <circle cx={50 + eyeOffset} cy={eyeY} r="1.4" fill={accent} />
+          {/* eyes — wrapped in motion.g so blink animation can scale Y */}
+          <motion.g animate={blink} style={{ transformOrigin: `40px ${eyeY}px` }}>
+            <ellipse cx="30" cy={eyeY} rx="3" ry={3 - lidH} fill="var(--foreground)" />
+            <ellipse cx="50" cy={eyeY} rx="3" ry={3 - lidH} fill="var(--foreground)" />
+            {/* pupils with gaze */}
+            <circle cx={30 + eyeOffset} cy={eyeY} r="1.4" fill={accent} />
+            <circle cx={50 + eyeOffset} cy={eyeY} r="1.4" fill={accent} />
+          </motion.g>
           {/* glasses */}
           {acc === "glasses" && (
             <g stroke={accent} strokeWidth="1.5" fill="none" opacity="0.85">
@@ -223,6 +275,6 @@ export function JudgeAvatar({ judgeId, expression, accent, size = 64, gazeX = 0 
           />
         </motion.svg>
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
