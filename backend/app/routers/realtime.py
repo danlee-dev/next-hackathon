@@ -251,23 +251,20 @@ async def heckle(
     recent: list[str] = state.setdefault("heckle_recent", [])
 
     # 1. Demo path: keyword-matched scripted heckle takes priority so the
-    #    pitch always lands the rehearsed dramatic beat (e.g. inflated TAM
-    #    -> 박독설 "거품 낀 숫자 아닙니까?"). When no rule matches, fall
-    #    through to the LLM-generated jab.
-    fired_scripted = False
+    #    pitch always lands the rehearsed dramatic beat. Each scripted rule
+    #    fires at most once per session (tracked in state["heckle_scripted_used"]).
+    used_ids: set[str] = state.setdefault("heckle_scripted_used", set())
     if req and req.judge_id and req.judge_id in _JUDGE_NAME:
         judge_id = req.judge_id
         text = await generate_heckle(
             judge_id, transcript, context=context, research=research
         )
     else:
-        scripted = find_scripted_heckle(transcript, recent_judges=recent)
+        scripted = find_scripted_heckle(transcript, recent_judges=recent, used_ids=used_ids)
         if scripted is not None:
-            judge_id, text = scripted
-            fired_scripted = True
-            logger.info(
-                "[heckle] scripted fire judge=%s text=%s", judge_id, text
-            )
+            judge_id, text, rule_id = scripted
+            used_ids.add(rule_id)
+            logger.info("[heckle] scripted fire id=%s judge=%s text=%s", rule_id, judge_id, text)
         else:
             candidates = [j for j in _JUDGE_IDS if j not in recent[-1:]]
             if not candidates:
