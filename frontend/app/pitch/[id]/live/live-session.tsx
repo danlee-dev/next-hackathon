@@ -519,11 +519,11 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         </div>
       </header>
 
-      {/* main grid */}
-      <div className="absolute inset-0 mt-12 grid grid-cols-1 lg:grid-cols-[1fr_400px]">
+      {/* main grid (mobile: scrollable column, desktop: 2-col) */}
+      <div className="absolute inset-x-0 top-12 bottom-0 overflow-y-auto lg:overflow-hidden lg:grid lg:grid-cols-[1fr_400px]">
         {/* left */}
-        <section className="relative flex flex-col gap-3 overflow-hidden p-4">
-          <div className="relative flex-1 min-h-0">
+        <section className="relative flex flex-col gap-3 lg:overflow-hidden p-4">
+          <div className="relative aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0">
             <motion.div
               className="relative h-full w-full overflow-hidden rounded-md border-2"
               animate={{ borderColor: trustColor(scores.trust) }}
@@ -592,7 +592,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         </section>
 
         {/* right */}
-        <aside className="border-t lg:border-t-0 lg:border-l border-border-faint flex flex-col gap-3 overflow-y-auto p-4">
+        <aside className="border-t lg:border-t-0 lg:border-l border-border-faint flex flex-col gap-3 lg:overflow-y-auto p-4">
           <div className="flex flex-col gap-2">
             {JUDGES.map((j) => {
               const r = reactions[j.id];

@@ -32,6 +32,8 @@ export function TimelineChart({ data }: Props) {
             tick={{ fill: "var(--muted-foreground)", fontSize: 10, fontFamily: "var(--font-mono)" }}
             tickLine={false}
             axisLine={{ stroke: "var(--border-faint)" }}
+            interval="preserveStartEnd"
+            minTickGap={42}
           />
           <YAxis
             domain={[0, 100]}
