@@ -115,6 +115,44 @@ export async function fetchReport(sessionId: string): Promise<FinalizeRes> {
   return res.json();
 }
 
+export interface RealtimeSessionRes {
+  client_secret: string;
+  expires_at: number;
+  model: string;
+  sample_rate: number;
+}
+
+export async function createRealtimeSession(): Promise<RealtimeSessionRes> {
+  const res = await authedFetch("/api/v1/realtime/session", { method: "POST" });
+  if (!res.ok) throw new Error(`realtime session mint failed: ${res.status}`);
+  return res.json();
+}
+
+export interface TranscriptDeltaRes {
+  transcript: string;
+  filler_count_delta: number;
+  filler_words_found: { word: string; ts_ms: number }[];
+  empty_phrases_delta: number;
+  pace_cpm: number;
+  filler_count_per_min: number;
+  audio_score: number;
+}
+
+export async function postTranscriptDelta(
+  sessionId: string,
+  delta: string,
+  tsMs: number,
+  isFinal: boolean,
+): Promise<TranscriptDeltaRes> {
+  const res = await authedFetch(`/api/v1/sessions/${sessionId}/transcript-delta`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ delta, ts_ms: tsMs, is_final: isFinal }),
+  });
+  if (!res.ok) throw new Error(`transcript-delta failed: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchLiveReaction(
   sessionId: string,
   judgeId: "judge-fact" | "judge-connect" | "judge-critical",

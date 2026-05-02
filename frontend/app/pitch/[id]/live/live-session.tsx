@@ -9,7 +9,7 @@ import { WebcamCanvas } from "@/components/pitch/webcam-canvas";
 import { useAudioLevel } from "@/hooks/use-audio-level";
 import { type AudioChunkInfo, useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useMediaPipe } from "@/hooks/use-mediapipe";
-import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { useRealtimeTranscription } from "@/hooks/use-realtime-transcription";
 import { useTrustStore } from "@/hooks/use-trust-store";
 import { BodySwayTracker } from "@/lib/analyzers/body-sway";
 import { computeEyeContact } from "@/lib/analyzers/eye-contact";
@@ -19,8 +19,10 @@ import { SmileNaturalnessTracker } from "@/lib/analyzers/smile";
 import { EMA } from "@/lib/analyzers/smoothing";
 import {
   coachSnapshot,
+  createRealtimeSession,
   fetchLiveReaction,
   finalizeSession,
+  postTranscriptDelta,
   uploadAudioChunk,
   uploadVisualTick,
 } from "@/lib/api-client";
@@ -332,42 +334,50 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
     async (blob: Blob, info: AudioChunkInfo) => {
       try {
         const res = await uploadAudioChunk(sessionId, blob, info.index, info.startMs);
-        if (res.transcript_partial) {
-          trust.appendTranscript(res.transcript_partial);
-        }
-        if (res.filler_words_found?.length) {
-          trust.pushFillerEvents(res.filler_words_found);
-          const totalMin = Math.max(durationMs / 60000, 1 / 60);
-          const fillerPerMin = (trust.filler_total + res.filler_words_found.length) / totalMin;
-          trust.updateMetrics({
-            filler_count_per_min: fillerPerMin,
-            pace_cpm: res.pace_cpm,
-            pitch_stability: res.pitch_stability,
-            volume_consistency: res.volume_consistency,
-          });
-        } else if (res.pace_cpm) {
-          trust.updateMetrics({
-            pace_cpm: res.pace_cpm,
-            pitch_stability: res.pitch_stability,
-            volume_consistency: res.volume_consistency,
-          });
-        }
+        // Transcription now flows through useRealtimeTranscription / transcript-delta.
+        // audio-chunk only carries acoustic (pitch/volume) metrics now.
+        trust.updateMetrics({
+          pitch_stability: res.pitch_stability,
+          volume_consistency: res.volume_consistency,
+        });
       } catch {
         // backend not available — silently degrade
       }
     },
-    [sessionId, trust, durationMs],
+    [sessionId, trust],
   );
 
   useAudioRecorder(!demoMode && phase === "live", onAudioChunk);
 
-  // Web Speech API — *interim 자막만* 표시 (즉각적 시각 피드백). final 은 무시.
-  // 한국어 정확도 약하므로 store 의 canonical transcript 는 backend Whisper 로만 채움.
-  useSpeechRecognition(!demoMode && phase === "live", {
-    onInterim: setInterim,
-    onFinal: () => {
+  // OpenAI Realtime transcription — interim deltas (gray) + completed
+  // utterances (white, canonical). Backend filler / pace / judge analysis
+  // runs on each completed utterance via /transcript-delta.
+  const interimBufferRef = useRef("");
+  useRealtimeTranscription(!demoMode && phase === "live", {
+    fetchSession: createRealtimeSession,
+    onDelta: (delta) => {
+      interimBufferRef.current += delta;
+      setInterim(interimBufferRef.current);
+    },
+    onCompleted: (text) => {
+      interimBufferRef.current = "";
       setInterim("");
-      // intentionally NOT appending to store — Whisper canonical wins
+      const clean = text.trim();
+      if (!clean) return;
+      trust.appendTranscript(clean);
+      postTranscriptDelta(sessionId, clean, Math.round(durationMs), true)
+        .then((res) => {
+          if (res.filler_words_found?.length) {
+            trust.pushFillerEvents(res.filler_words_found);
+          }
+          trust.updateMetrics({
+            pace_cpm: res.pace_cpm,
+            filler_count_per_min: res.filler_count_per_min,
+          });
+        })
+        .catch(() => {
+          // backend transcript-delta down — interim/final still rendered
+        });
     },
   });
 

@@ -108,9 +108,9 @@
   --radius-lg: var(--radius-lg);
 }
 
-/* Pretendard Variable from CDN */
-@import url("https://cdn.jsdelivr.net/npm/pretendard/dist/web/variable/pretendardvariable.css");
-/* fallback @font-face — npm path 가 끊기면 jsdelivr github 으로 */
+/* Pretendard Variable — @font-face from jsdelivr github (CDN @import was
+   removed because Tailwind v4 inlines its imports above ours, violating
+   CSS @import-must-come-first rule). */
 @font-face {
   font-family: "Pretendard Variable";
   font-weight: 45 920;
