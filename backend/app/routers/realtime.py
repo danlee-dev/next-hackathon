@@ -212,15 +212,15 @@ async def transcript_delta(
 
     scores = all_scores(state["audio_metrics_running"] | state.get("visual_last", {}))
 
-    # Scripted heckle dispatch — fire the rehearsed line at the exact moment
-    # its keyword(s) appear, regardless of any time scheduler. Each rule
-    # fires at most once per session.
+    # Scripted heckle dispatch — match against THIS utterance's delta only,
+    # not the running transcript. That way a keyword fires once per
+    # utterance it appears in: if the speaker says "10조" again later, the
+    # heckle fires again instead of being suppressed by a session-wide
+    # used_ids set.
     triggered: Optional[TriggeredHeckle] = None
-    used_ids: set[str] = state.setdefault("heckle_scripted_used", set())
-    scripted = find_scripted_heckle(new_transcript, used_ids=used_ids)
+    scripted = find_scripted_heckle(delta)
     if scripted is not None:
         s_judge, s_text, s_rule = scripted
-        used_ids.add(s_rule)
         # Hit the pre-warmed cache first (set at startup) for zero-latency
         # delivery; synthesize on the fly only if the warm step missed.
         s_voice = SCRIPTED_VOICE_CACHE.get(s_rule)
