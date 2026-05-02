@@ -201,7 +201,9 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         const last = lastReactionRef.current[ev.judgeId] ?? 0;
         if (now - last < 1500) continue;
         const prev = trust.reactions[ev.judgeId];
-        if (prev?.expression === ev.expression && prev?.comment === ev.comment) continue;
+        // Don't overwrite a freshly-set LLM comment when the trigger expression
+        // matches what's already on screen — only fire on real expression changes.
+        if (prev?.expression === ev.expression) continue;
         lastReactionRef.current[ev.judgeId] = now;
         trust.setReaction({
           judge_id: ev.judgeId,
@@ -300,7 +302,9 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         const last = lastReactionRef.current[ev.judgeId] ?? 0;
         if (now - last < 1500) continue;
         const prev = trust.reactions[ev.judgeId];
-        if (prev?.expression === ev.expression && prev?.comment === ev.comment) continue;
+        // Don't clobber a freshly-set LLM comment when the trigger expression
+        // is unchanged — fire only on real expression flips.
+        if (prev?.expression === ev.expression) continue;
         lastReactionRef.current[ev.judgeId] = now;
         trust.setReaction({
           judge_id: ev.judgeId,
@@ -447,7 +451,7 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
       } catch {
         // backend down — keep hardcoded trigger comment
       }
-    }, 6500);
+    }, 4200);
     return () => window.clearInterval(id);
   }, [demoMode, phase, sessionId, trust, durationMs]);
 

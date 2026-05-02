@@ -25,7 +25,11 @@ export interface TriggerRule {
   op: TriggerOp;
   value: number;
   expression: Expression;
+  /** Single canonical comment — kept for backwards compatibility. */
   comment: string;
+  /** Optional pool of paraphrased comments. When present, the trigger engine
+   * picks one at random per fire so judges don't repeat themselves. */
+  comments?: string[];
   priority?: number;
 }
 

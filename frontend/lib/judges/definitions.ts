@@ -15,6 +15,13 @@ export const JUDGES: Judge[] = [
         value: 1,
         expression: "frown",
         comment: "근거 없는 단정은 위험합니다.",
+        comments: [
+          "근거 없는 단정은 위험합니다.",
+          "지금 그 표현, 데이터로 뒷받침되나요?",
+          "'혁신적' 같은 형용사 말고 숫자를 듣고 싶군요.",
+          "단정 말고 근거를 보여주세요.",
+          "어떤 지표가 그걸 증명하죠?",
+        ],
         priority: 8,
       },
       {
@@ -23,6 +30,12 @@ export const JUDGES: Judge[] = [
         value: 80,
         expression: "nod",
         comment: "메시지가 명확하군요.",
+        comments: [
+          "메시지가 명확하군요.",
+          "한 문장으로 말이 됩니다. 좋아요.",
+          "뭘 하는 회사인지 정확히 들립니다.",
+          "핵심이 깔끔하게 잡혔어요.",
+        ],
         priority: 5,
       },
       {
@@ -31,6 +44,13 @@ export const JUDGES: Judge[] = [
         value: 40,
         expression: "doubt",
         comment: "근거가 부족합니다.",
+        comments: [
+          "근거가 부족합니다.",
+          "주장은 들었는데 데이터가 없네요.",
+          "그 숫자 출처가 어디죠?",
+          "팩트와 의견이 섞여 있어요.",
+          "수치 한두 개만 더 듣고 싶습니다.",
+        ],
         priority: 7,
       },
     ],
@@ -49,6 +69,13 @@ export const JUDGES: Judge[] = [
         value: 40,
         expression: "frown",
         comment: "눈을 봐주세요.",
+        comments: [
+          "눈을 봐주세요.",
+          "시선이 자꾸 흩어지네요.",
+          "제 눈을 보고 말씀해주세요.",
+          "카메라를 정면으로 봐주세요.",
+          "아이컨택이 약하면 신뢰가 안 잡힙니다.",
+        ],
         priority: 8,
       },
       {
@@ -57,6 +84,12 @@ export const JUDGES: Judge[] = [
         value: 70,
         expression: "smile",
         comment: "좋은 아이컨택입니다.",
+        comments: [
+          "좋은 아이컨택입니다.",
+          "시선이 안정됐네요. 좋아요.",
+          "지금 진정성이 느껴집니다.",
+          "이대로 끝까지 유지해주세요.",
+        ],
         priority: 5,
       },
       {
@@ -65,6 +98,12 @@ export const JUDGES: Judge[] = [
         value: 70,
         expression: "doubt",
         comment: "긴장이 보이네요.",
+        comments: [
+          "긴장이 보이네요.",
+          "어깨가 좀 흔들립니다. 호흡을 한 번.",
+          "조금만 천천히, 자세를 잡아보세요.",
+          "몸의 흔들림이 메시지를 흐리게 해요.",
+        ],
         priority: 6,
       },
       {
@@ -73,6 +112,12 @@ export const JUDGES: Judge[] = [
         value: 60,
         expression: "smile",
         comment: "자신감이 느껴집니다.",
+        comments: [
+          "자신감이 느껴집니다.",
+          "표정이 자연스럽네요.",
+          "지금 그 미소, 설득력 있어요.",
+          "분위기가 좋아졌습니다.",
+        ],
         priority: 4,
       },
     ],
@@ -91,6 +136,13 @@ export const JUDGES: Judge[] = [
         value: 8,
         expression: "bored",
         comment: "추임새를 줄이세요.",
+        comments: [
+          "추임새를 줄이세요.",
+          "'어, 그, 음' 좀 빼고 가시죠.",
+          "필러가 너무 많습니다. 다음 문장은 1초 멈췄다 가세요.",
+          "말 사이 간격을 비워두세요.",
+          "추임새가 신뢰를 갉아먹어요.",
+        ],
         priority: 7,
       },
       {
@@ -99,6 +151,13 @@ export const JUDGES: Judge[] = [
         value: 40,
         expression: "doubt",
         comment: "목소리가 떨립니다.",
+        comments: [
+          "목소리가 떨립니다.",
+          "톤을 좀 잡아주세요.",
+          "한 호흡 가다듬고 다시.",
+          "음성이 흔들리는 게 들립니다.",
+          "긴장이 목소리에 배네요.",
+        ],
         priority: 8,
       },
       {
@@ -107,6 +166,12 @@ export const JUDGES: Judge[] = [
         value: 380,
         expression: "surprised",
         comment: "너무 빠릅니다.",
+        comments: [
+          "너무 빠릅니다.",
+          "속도 좀 늦춰주세요.",
+          "따라가기가 힘드네요.",
+          "한 박자만 천천히.",
+        ],
         priority: 6,
       },
       {
@@ -115,6 +180,12 @@ export const JUDGES: Judge[] = [
         value: 220,
         expression: "bored",
         comment: "너무 느립니다.",
+        comments: [
+          "너무 느립니다.",
+          "지루해지고 있어요.",
+          "에너지가 떨어졌네요. 좀 올리세요.",
+          "텐션이 빠졌습니다.",
+        ],
         priority: 5,
       },
     ],
