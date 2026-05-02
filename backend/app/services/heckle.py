@@ -34,33 +34,105 @@ logger = logging.getLogger(__name__)
 # back to the LLM-generated path.
 # Demo script: only two beats. Each rule fires AT MOST ONCE per session
 # (tracked via the `id` field against state["heckle_scripted_used"]).
+#
+# Two trigger modes per rule:
+#   keywords: any single token / phrase appearing in transcript fires the rule.
+#   keyword_groups: ALL tokens in at least one group must appear in the
+#     window (in any order) — useful for combinations like
+#     ["10", "조"] or ["글로벌", "시장"] to catch paraphrases.
+#
+# Matching is whitespace/punctuation-insensitive after _normalize().
 SCRIPTED_HECKLES: list[dict] = [
     # Beat 1 — 박독설 challenges the inflated TAM.
-    # Trigger: speaker says "10조" or "글로벌 진출".
+    # Fires on ANY of: 10조 written together, "10 조" / "십 조" with a space,
+    # mention of global expansion, or both "조" + a market keyword nearby.
     {
         "id": "inflated_tam",
         "judge_id": "judge-critical",
-        "keywords": ["10조", "글로벌 진출", "글로벌 시장", "global total market"],
+        "keywords": [
+            # numeric/word forms of the trillion-won figure
+            "10조",
+            "십조",
+            "수조",
+            "수십조",
+            "조원",
+            "조 규모",
+            "조 단위",
+            "조 시장",
+            # global expansion language
+            "글로벌 진출",
+            "글로벌 시장",
+            "글로벌 확장",
+            "해외 진출",
+            "해외 확장",
+            "전세계",
+            "전 세계",
+            "월드와이드",
+            "global total market",
+            "global market",
+        ],
+        # Catch loose paraphrases — both tokens anywhere in window.
+        "keyword_groups": [
+            ["10", "조"],
+            ["100", "조"],
+            ["글로벌", "시장"],
+            ["글로벌", "장악"],
+            ["해외", "장악"],
+        ],
         "text": (
             "잠깐만요, 발표자님. 국내 피칭 시장 규모만으론 10조는 "
             "지나치게 과장된 숫자 아닌가요? 거품 낀 숫자 아닙니까?"
         ),
     },
     # Beat 2 — 김팩트 concedes the rebuttal after the speaker explains
-    # language-agnostic global expansion.
+    # language-agnostic global expansion / multilingual support.
     {
         "id": "global_expansion_validated",
         "judge_id": "judge-fact",
         "keywords": [
             "언어에 종속되지 않",
+            "언어 종속",
+            "언어 무관",
+            "언어 독립",
             "다국어",
-            "global total market",
+            "다 국어",
             "영어, 일어",
+            "영어와 일어",
+            "영어 일어",
             "텍스트 데이터 해싱",
+            "데이터 해싱",
+            "해싱 기술",
+            "global total market",
+            "global market",
+            "여러 언어",
+            "모든 언어",
+        ],
+        # Looser semantic combinations.
+        "keyword_groups": [
+            ["언어", "확장"],
+            ["언어", "지원"],
+            ["다국어", "모듈"],
+            ["글로벌", "포함"],
         ],
         "text": "글로벌 확장성 논리 타당함. 최종 신뢰 지수 15퍼센트 가산.",
     },
 ]
+
+
+def _normalize(s: str) -> str:
+    """Lowercase + strip whitespace and common Korean punctuation so loose
+    paraphrases still match (e.g. '10 조원' vs '10조원', '글로벌, 진출' vs
+    '글로벌 진출')."""
+    if not s:
+        return ""
+    s = s.lower()
+    # Drop characters that don't carry matching signal. Keep Korean syllables,
+    # ascii alnum, and join everything tightly.
+    out: list[str] = []
+    for ch in s:
+        if ch.isalnum() or "가" <= ch <= "힣":
+            out.append(ch)
+    return "".join(out)
 
 
 def find_scripted_heckle(
@@ -73,16 +145,25 @@ def find_scripted_heckle(
     Returns (judge_id, text, rule_id) on first match, else None. Skips
     rules whose `id` is already in `used_ids` so each scripted beat fires
     at most once per session.
+
+    Matching is normalized: lowercase, whitespace and punctuation stripped,
+    so '10 조' matches '10조', '글로벌, 진출' matches '글로벌 진출', etc.
     """
     if not transcript:
         return None
-    window = transcript[-600:].lower()
+    window_raw = transcript[-600:]
+    window = _normalize(window_raw)
     used = used_ids or set()
     for rule in SCRIPTED_HECKLES:
         if rule["id"] in used:
             continue
-        for kw in rule["keywords"]:
-            if kw and kw.lower() in window:
+        # Single-token / phrase keywords.
+        for kw in rule.get("keywords", []):
+            if kw and _normalize(kw) in window:
+                return rule["judge_id"], rule["text"], rule["id"]
+        # Combination groups — ALL tokens in a group must appear in window.
+        for group in rule.get("keyword_groups", []):
+            if all(_normalize(t) in window for t in group if t):
                 return rule["judge_id"], rule["text"], rule["id"]
     return None
 
