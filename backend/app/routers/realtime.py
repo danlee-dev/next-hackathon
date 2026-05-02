@@ -214,17 +214,24 @@ async def transcript_delta(
     scores = all_scores(state["audio_metrics_running"] | state.get("visual_last", {}))
 
     # Scripted heckle dispatch — match against THIS utterance's delta only.
-    # Each rule fires AT MOST ONCE per session (state['heckle_scripted_used']).
-    # Distinctive phrases in heckle.py keep matches tight; once-only stops
-    # the same beat firing again if the speaker echoes the phrase.
+    # Per-rule cooldown: the same rule can't re-fire within 10s of its
+    # last fire (different rules are independent — they can fire
+    # back-to-back without restriction).
+    SAME_RULE_COOLDOWN_S = 10.0
     triggered: Optional[TriggeredHeckle] = None
-    used_ids: set[str] = state.setdefault("heckle_scripted_used", set())
-    scripted = find_scripted_heckle(delta, used_ids=used_ids)
-    # Fallback: if no exact-keyword match, ask the embedding matcher.
-    # _SIMILARITY_THRESHOLD inside heckle.py keeps this strict so '10조' /
-    # '시장' 단편 발화는 trigger 안 됨 — only full-sentence paraphrases.
+    last_fires: dict[str, float] = state.setdefault("heckle_last_fire", {})
+    now_ts = time.time()
+    in_cooldown = {
+        rid
+        for rid, ts in last_fires.items()
+        if now_ts - ts < SAME_RULE_COOLDOWN_S
+    }
+    # Find first matching rule (find_scripted_heckle returns at most one,
+    # so a single utterance can only trigger ONE heckle even if it would
+    # otherwise match multiple rules).
+    scripted = find_scripted_heckle(delta, used_ids=in_cooldown)
     if scripted is None:
-        sim = await find_scripted_by_similarity(delta, used_ids=used_ids)
+        sim = await find_scripted_by_similarity(delta, used_ids=in_cooldown)
         if sim is not None:
             s_judge, s_text, s_rule, s_score = sim
             scripted = (s_judge, s_text, s_rule)
@@ -235,7 +242,7 @@ async def transcript_delta(
             )
     if scripted is not None:
         s_judge, s_text, s_rule = scripted
-        used_ids.add(s_rule)
+        last_fires[s_rule] = now_ts
         # Hit the pre-warmed cache first (set at startup) for zero-latency
         # delivery; synthesize on the fly only if the warm step missed.
         s_voice = SCRIPTED_VOICE_CACHE.get(s_rule)
