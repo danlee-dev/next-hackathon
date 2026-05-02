@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from app.deps import get_user_id
 from app.models.schemas import CoachSnapshotRes
+from app.routers.sessions import session_state
 from app.services.content_analyzer import generate_coach_message
 
 router = APIRouter()
@@ -24,7 +25,9 @@ async def coach_snapshot(
         m = json.loads(metrics_window or "{}")
     except json.JSONDecodeError:
         m = {}
-    text = await generate_coach_message(m)
+    state = session_state(session_id)
+    context = state.get("context") or {}
+    text = await generate_coach_message(m, context=context)
     judge_id = None
     eye = m.get("eye_contact_ratio", 100)
     fpm = m.get("filler_count_per_min", 0)

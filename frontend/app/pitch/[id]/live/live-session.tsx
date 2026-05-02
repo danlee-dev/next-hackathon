@@ -19,6 +19,7 @@ import { SmileNaturalnessTracker } from "@/lib/analyzers/smile";
 import { EMA } from "@/lib/analyzers/smoothing";
 import {
   coachSnapshot,
+  fetchLiveReaction,
   finalizeSession,
   uploadAudioChunk,
   uploadVisualTick,
@@ -367,6 +368,49 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
       trust.appendTranscript(t);
     },
   });
+
+  // 6s rotating LLM judge comment — overrides hardcoded trigger comment.
+  // Only in real mode; demo mode uses local rotation prompts.
+  useEffect(() => {
+    if (demoMode || phase !== "live") return;
+    const judgeOrder: Array<"judge-fact" | "judge-connect" | "judge-critical"> = [
+      "judge-fact",
+      "judge-connect",
+      "judge-critical",
+    ];
+    let idx = 0;
+    const id = window.setInterval(async () => {
+      const judgeId = judgeOrder[idx % judgeOrder.length];
+      idx += 1;
+      try {
+        const r = await fetchLiveReaction(
+          sessionId,
+          judgeId,
+          {
+            eye_contact_ratio: trust.metrics.eye_contact_ratio,
+            head_stability: trust.metrics.head_stability,
+            body_sway: trust.metrics.body_sway,
+            gesture_usage: trust.metrics.gesture_usage,
+            filler_count_per_min: trust.metrics.filler_count_per_min,
+            pitch_stability: trust.metrics.pitch_stability,
+            pace_cpm: trust.metrics.pace_cpm,
+            trust_score: trust.scores.trust,
+          },
+          trust.transcript.slice(-1500),
+        );
+        const prev = trust.reactions[judgeId];
+        trust.setReaction({
+          judge_id: judgeId,
+          expression: prev?.expression ?? "neutral",
+          comment: r.comment,
+          ts_ms: durationMs,
+        });
+      } catch {
+        // backend down — keep hardcoded trigger comment
+      }
+    }, 6500);
+    return () => window.clearInterval(id);
+  }, [demoMode, phase, sessionId, trust, durationMs]);
 
   // 10s coach (real mode)
   useEffect(() => {
@@ -766,36 +810,63 @@ function Activity({ active }: { active: boolean }) {
 }
 
 function FinalizingOverlay() {
-  const lines = [
-    "analyzing transcript...",
-    "evaluating judges...",
-    "balancing trust score...",
-    "drafting action items...",
-  ];
-  const [shown, setShown] = useState(0);
+  const stages = ["전사 분석 중", "심사위원 평가 중", "신뢰 점수 산출", "액션 아이템 정리"];
+  const [stageIdx, setStageIdx] = useState(0);
   useEffect(() => {
-    const id = window.setInterval(() => setShown((s) => Math.min(s + 1, lines.length)), 500);
+    const id = window.setInterval(() => setStageIdx((s) => (s + 1) % stages.length), 2200);
     return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-30 grid place-items-center bg-background/95 backdrop-blur-md"
+      className="absolute inset-0 z-30 grid place-items-center bg-black/95 backdrop-blur-md"
     >
-      <div className="rounded-md border border-border-faint bg-surface-1 px-6 py-5 font-mono text-xs">
-        <div className="text-primary mb-3 uppercase tracking-wider">[trust-engine] finalize</div>
-        {lines.slice(0, shown).map((l, i) => (
-          <div key={i} className="flex items-center gap-2 text-muted-foreground">
-            <span className="text-trust-high">›</span> {l}{" "}
-            {i < shown - 1 ? (
-              <span className="text-trust-high">[done]</span>
-            ) : (
-              <span className="ml-1 inline-block h-3 w-1.5 bg-primary animate-pulse" />
-            )}
-          </div>
-        ))}
+      <div className="flex w-full max-w-[480px] flex-col items-center gap-7 px-6 text-center">
+        <div className="font-mono text-[10.5px] uppercase tracking-[0.4em] text-white/45">
+          Final report
+        </div>
+        <h2
+          className="text-balance font-medium leading-[1.1]"
+          style={{ fontSize: "clamp(28px, 3.2vw, 40px)", letterSpacing: "-0.02em" }}
+        >
+          심사위원 셋이
+          <br />
+          종합 평가를 작성하고 있습니다.
+        </h2>
+        <div className="h-7 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={stages[stageIdx]}
+              initial={{ y: 14, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -14, opacity: 0 }}
+              transition={{ duration: 0.35 }}
+              className="block font-mono text-[12px] uppercase tracking-[0.32em] text-white/65"
+            >
+              {stages[stageIdx]}
+            </motion.span>
+          </AnimatePresence>
+        </div>
+        <div className="flex items-center gap-2.5">
+          {[0, 1, 2].map((i) => (
+            <motion.span
+              key={i}
+              className="block h-1 w-1 rounded-full bg-white"
+              animate={{ opacity: [0.2, 1, 0.2] }}
+              transition={{
+                duration: 1.4,
+                repeat: Number.POSITIVE_INFINITY,
+                delay: i * 0.18,
+              }}
+            />
+          ))}
+        </div>
+        <p className="max-w-[360px] text-[12.5px] leading-[1.6] text-white/45">
+          GPT-4o-mini 가 발표 전사·메타 지표·사전 컨텍스트를 모두 보고 있습니다. 5-10초 소요됩니다.
+        </p>
       </div>
     </motion.div>
   );

@@ -121,18 +121,43 @@ async def finalize(
     }
     scores = all_scores(merged_metrics)
 
-    judge_summaries = {
-        "judge-fact": (result.get("judge_fact", {}) or {}).get("comment", ""),
-        "judge-connect": (result.get("judge_connect", {}) or {}).get("comment", ""),
-        "judge-critical": (result.get("judge_critical", {}) or {}).get("comment", ""),
+    # judge_reports — full structured payload per judge (score + comment + quote + correction)
+    judge_reports: dict = {}
+    for jid in ("judge-fact", "judge-connect", "judge-critical"):
+        key = jid.replace("-", "_")
+        j = result.get(key, {}) or {}
+        judge_reports[jid] = {
+            "score": int(j.get("score", 60)),
+            "comment": j.get("comment", ""),
+            "quote_cited": j.get("quote_cited", ""),
+            "correction_suggestion": j.get("correction_suggestion", ""),
+        }
+
+    judge_summaries = {jid: judge_reports[jid]["comment"] for jid in judge_reports}
+
+    # store the entire pipeline output for /report endpoint
+    state["last_finalize"] = {
+        "scores": scores,
+        "merged_metrics": merged_metrics,
+        "judge_reports": judge_reports,
+        "content_evaluation": content_eval,
+        "strengths": result.get("strengths", []),
+        "weaknesses": result.get("weaknesses", []),
+        "action_items": result.get("action_items", []),
+        "trust_grade": result.get("trust_grade", "B"),
+        "grade_reason": result.get("grade_reason", ""),
     }
 
     llm_feedback = {
         "rationale": content_eval.get("rationale", ""),
+        "judge_reports": judge_reports,
         "judge_summaries": judge_summaries,
         "strengths": result.get("strengths", []),
         "weaknesses": result.get("weaknesses", []),
         "action_items": result.get("action_items", []),
+        "trust_grade": result.get("trust_grade", "B"),
+        "grade_reason": result.get("grade_reason", ""),
+        "content_evaluation": content_eval,
     }
 
     metrics_for_db = {**merged_metrics, "filler_count_total": state.get("filler_total", 0)}
@@ -151,27 +176,58 @@ async def finalize(
         visual_score=scores["visual"],
         audio_score=scores["audio"],
         content_score=scores["content"],
+        trust_grade=result.get("trust_grade", "B"),
+        grade_reason=result.get("grade_reason", ""),
         strengths=result.get("strengths", []),
         weaknesses=result.get("weaknesses", []),
         action_items=result.get("action_items", []),
+        judge_reports=judge_reports,
         judge_summaries=judge_summaries,
+        content_evaluation=content_eval,
     )
 
 
 @router.get("/sessions/{session_id}/report", response_model=FinalizeRes)
 def get_report(session_id: str, user_id: str = Depends(get_user_id)) -> FinalizeRes:
+    # 우선 in-memory state 에서 가장 최신 finalize 결과를 먼저 본다.
+    state = _SESSION_STATE.get(session_id)
+    if state and state.get("last_finalize"):
+        f = state["last_finalize"]
+        return FinalizeRes(
+            session_id=session_id,
+            trust_score=f["scores"]["trust"],
+            visual_score=f["scores"]["visual"],
+            audio_score=f["scores"]["audio"],
+            content_score=f["scores"]["content"],
+            trust_grade=f.get("trust_grade", "B"),
+            grade_reason=f.get("grade_reason", ""),
+            strengths=f.get("strengths", []),
+            weaknesses=f.get("weaknesses", []),
+            action_items=f.get("action_items", []),
+            judge_reports=f.get("judge_reports", {}),
+            judge_summaries={
+                k: v.get("comment", "") for k, v in f.get("judge_reports", {}).items()
+            },
+            content_evaluation=f.get("content_evaluation", {}),
+        )
+
     row = fetch_session(session_id)
     if row is None:
         raise HTTPException(status_code=404, detail="session not found")
     fb = row.get("llm_feedback") or {}
+    judge_reports = fb.get("judge_reports") or {}
     return FinalizeRes(
         session_id=session_id,
         trust_score=row.get("trust_score") or 0.0,
         visual_score=row.get("visual_score") or 0.0,
         audio_score=row.get("audio_score") or 0.0,
         content_score=row.get("content_score") or 0.0,
+        trust_grade=fb.get("trust_grade", "B"),
+        grade_reason=fb.get("grade_reason", ""),
         strengths=fb.get("strengths", []),
         weaknesses=fb.get("weaknesses", []),
         action_items=fb.get("action_items", []),
+        judge_reports=judge_reports,
         judge_summaries=fb.get("judge_summaries", {}),
+        content_evaluation=fb.get("content_evaluation", {}),
     )

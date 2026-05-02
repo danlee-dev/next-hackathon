@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import audio, coach, sessions, visual
+from app.routers import audio, coach, live_reaction, qna, sessions, visual
 
 logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL, logging.INFO))
 logger = logging.getLogger("trustpitch")
@@ -34,6 +34,8 @@ app.include_router(sessions.router, prefix=API_PREFIX, tags=["sessions"])
 app.include_router(audio.router, prefix=API_PREFIX, tags=["audio"])
 app.include_router(visual.router, prefix=API_PREFIX, tags=["visual"])
 app.include_router(coach.router, prefix=API_PREFIX, tags=["coach"])
+app.include_router(live_reaction.router, prefix=API_PREFIX, tags=["live"])
+app.include_router(qna.router, prefix=API_PREFIX, tags=["qna"])
 
 
 @app.get("/")

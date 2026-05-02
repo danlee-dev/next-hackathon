@@ -27,12 +27,19 @@ function patchMpLog() {
   mpLogPatched = true;
   const origInfo = console.info;
   const origLog = console.log;
+  const origWarn = console.warn;
+  const origError = console.error;
   const filter = (msg: unknown) =>
     typeof msg === "string" &&
     (msg.startsWith("INFO:") ||
+      msg.startsWith("W0000") ||
+      msg.startsWith("E0000") ||
       msg.includes("TensorFlow Lite") ||
       msg.includes("XNNPACK") ||
-      msg.includes("Created delegate"));
+      msg.includes("Created TensorFlow") ||
+      msg.includes("Created delegate") ||
+      msg.includes("inference_calculator") ||
+      msg.includes("graph_builder"));
   console.info = (...args: unknown[]) => {
     if (filter(args[0])) return;
     origInfo.apply(console, args as []);
@@ -40,6 +47,14 @@ function patchMpLog() {
   console.log = (...args: unknown[]) => {
     if (filter(args[0])) return;
     origLog.apply(console, args as []);
+  };
+  console.warn = (...args: unknown[]) => {
+    if (filter(args[0])) return;
+    origWarn.apply(console, args as []);
+  };
+  console.error = (...args: unknown[]) => {
+    if (filter(args[0])) return;
+    origError.apply(console, args as []);
   };
 }
 const FACE_MODEL =

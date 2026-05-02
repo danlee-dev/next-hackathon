@@ -114,3 +114,73 @@ export async function fetchReport(sessionId: string): Promise<FinalizeRes> {
   if (!res.ok) throw new Error(`report fetch failed: ${res.status}`);
   return res.json();
 }
+
+export async function fetchLiveReaction(
+  sessionId: string,
+  judgeId: "judge-fact" | "judge-connect" | "judge-critical",
+  metrics: Record<string, number>,
+  transcriptExcerpt: string,
+): Promise<{ judge_id: string; comment: string }> {
+  const res = await authedFetch(`/api/v1/sessions/${sessionId}/live-reaction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      judge_id: judgeId,
+      metrics,
+      transcript_excerpt: transcriptExcerpt,
+    }),
+  });
+  if (!res.ok) throw new Error(`live reaction failed: ${res.status}`);
+  return res.json();
+}
+
+// Q&A
+export interface QnaQuestion {
+  judge_id: string;
+  judge_name: string;
+  text: string;
+  voice_b64?: string | null;
+}
+
+export interface QnaTurnRes {
+  judge_followup: QnaQuestion | null;
+  next_judge_id: string | null;
+  finished: boolean;
+}
+
+export async function qnaStart(sessionId: string): Promise<QnaQuestion> {
+  const res = await authedFetch(`/api/v1/sessions/${sessionId}/qna/start`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`qna start failed: ${res.status}`);
+  return res.json();
+}
+
+export async function qnaTextAnswer(
+  sessionId: string,
+  judgeId: string,
+  answer: string,
+): Promise<QnaTurnRes> {
+  const res = await authedFetch(`/api/v1/sessions/${sessionId}/qna/text-answer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      judge_id: judgeId,
+      user_answer_transcript: answer,
+    }),
+  });
+  if (!res.ok) throw new Error(`qna answer failed: ${res.status}`);
+  return res.json();
+}
+
+export async function qnaAudioAnswer(sessionId: string, audioBlob: Blob): Promise<QnaTurnRes> {
+  const fd = new FormData();
+  fd.set("audio", audioBlob, "answer.webm");
+  const res = await authedFetch(`/api/v1/sessions/${sessionId}/qna/answer`, {
+    method: "POST",
+    body: fd,
+  });
+  if (!res.ok) throw new Error(`qna audio answer failed: ${res.status}`);
+  return res.json();
+}

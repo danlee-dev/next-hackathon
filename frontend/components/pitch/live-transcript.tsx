@@ -62,14 +62,26 @@ function highlight(text: string) {
       return (
         <span
           key={i}
-          className="rounded-sm bg-white/[0.08] px-0.5 text-white underline decoration-white/55 decoration-wavy decoration-1 underline-offset-4"
+          className="rounded-sm px-0.5 underline decoration-wavy decoration-1 underline-offset-[5px]"
+          style={{
+            color: "oklch(0.84 0.13 75)",
+            textDecorationColor: "oklch(0.78 0.16 70)",
+            backgroundColor: "oklch(0.84 0.13 75 / 0.08)",
+          }}
         >
           {tk.text}
         </span>
       );
     if (tk.type === "empty")
       return (
-        <span key={i} className="text-white/65 underline decoration-1 underline-offset-4">
+        <span
+          key={i}
+          className="underline decoration-1 underline-offset-[5px]"
+          style={{
+            color: "oklch(0.84 0.13 75 / 0.95)",
+            textDecorationColor: "oklch(0.78 0.16 70 / 0.7)",
+          }}
+        >
           {tk.text}
         </span>
       );
