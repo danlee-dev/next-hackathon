@@ -472,10 +472,15 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
 
     const playHeckle = async () => {
       if (cancelled) return;
+      console.info("[heckle] firing");
       try {
         const r = await fetchHeckle(sessionId);
         if (cancelled) return;
-        // Punch the heckler's reaction onto the panel + chip overlay.
+        console.info("[heckle] got", {
+          judge: r.judge_id,
+          text: r.text,
+          hasVoice: !!r.voice_b64,
+        });
         trust.setReaction({
           judge_id: r.judge_id,
           expression: "doubt",
@@ -489,29 +494,37 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
           } catch {}
           const audio = new Audio(`data:audio/mpeg;base64,${r.voice_b64}`);
           heckleAudioRef.current = audio;
+          audio.volume = 1.0;
           audio.play().catch((err) => {
             console.warn("[heckle] audio play blocked", err);
+            toast.warning("브라우저가 자동재생을 막았어요. 화면을 한 번 클릭해주세요.");
           });
+        } else {
+          console.warn("[heckle] no voice_b64 — ElevenLabs key missing or failed");
+          toast.warning(`태클이 들어왔지만 음성이 없어요: "${r.text}"`);
         }
       } catch (err) {
         console.warn("[heckle] fetch failed", err);
+        toast.error("태클 호출 실패 — 콘솔 확인");
       }
     };
 
     const scheduleNext = () => {
       if (cancelled) return;
-      const delay = 45_000 + Math.floor(Math.random() * 30_000);
+      const delay = 30_000 + Math.floor(Math.random() * 20_000);
+      console.info(`[heckle] next in ${Math.round(delay / 1000)}s`);
       timer = window.setTimeout(async () => {
         await playHeckle();
         scheduleNext();
       }, delay);
     };
 
-    // First heckle 60s in so the speaker has time to set up.
+    // First heckle 25s in (down from 60s) so the speaker doesn't wait long.
+    console.info("[heckle] scheduler armed — first heckle in 25s");
     timer = window.setTimeout(async () => {
       await playHeckle();
       scheduleNext();
-    }, 60_000);
+    }, 25_000);
 
     return () => {
       cancelled = true;
