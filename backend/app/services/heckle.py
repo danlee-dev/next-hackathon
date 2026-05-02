@@ -52,23 +52,28 @@ SCRIPTED_HECKLES: list[dict] = [
     {
         "id": "inflated_tam",
         "judge_id": "judge-critical",
-        # Exact-phrase keywords — fast path, fires immediately on a hit.
+        # Exact-phrase keywords — fast path. Includes the '시장 진출을
+        # 통해 N조' variant since STT often inserts '시장' between
+        # '글로벌' and '진출' ('글로벌 시장 진출을 통해 10조').
         "keywords": [
             "글로벌 진출을 통해 10조",
             "글로벌 진출을 통해 100조",
+            "글로벌 시장 진출을 통해 10조",
+            "글로벌 시장 진출을 통해 100조",
             "해외 진출을 통해 10조",
             "해외 진출을 통해 100조",
+            "해외 시장 진출을 통해 10조",
+            "해외 시장 진출을 통해 100조",
         ],
         # Reference utterances used to compute embeddings at startup.
         # Any incoming utterance whose embedding is similar enough to ANY
         # of these (cosine >= threshold) fires the beat — STT variants
         # that drift from the keyword list are still caught semantically.
-        # Examples are tightly constrained to the rehearsed line so the
-        # embedding match only fires on a *full-sentence* paraphrase, not
-        # on any sentence that merely mentions '10조' in passing.
         "examples": [
             "저희는 향후 글로벌 진출을 통해 10조 규모의 시장을 장악하겠습니다",
             "글로벌 진출을 통해 100조 규모의 시장을 장악하겠습니다",
+            "글로벌 시장 진출을 통해 10조 규모의 시장을 장악하겠습니다",
+            "글로벌 시장 진출을 통해 100조 규모의 시장을 장악하겠습니다",
         ],
         "text": (
             "잠깐만요, 발표자님. 국내 피칭 시장 규모만으론 10조는 "
