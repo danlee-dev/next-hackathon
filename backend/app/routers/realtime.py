@@ -28,6 +28,7 @@ from app.services.elevenlabs_voice import synthesize
 from app.services.filler_detector import detect_empty_phrases, detect_fillers
 from app.services.heckle import (
     SCRIPTED_VOICE_CACHE,
+    find_scripted_by_similarity,
     find_scripted_heckle,
     generate_heckle,
 )
@@ -212,28 +213,29 @@ async def transcript_delta(
 
     scores = all_scores(state["audio_metrics_running"] | state.get("visual_last", {}))
 
-    # Scripted heckle dispatch — match against THIS utterance's delta only,
-    # not the running transcript. A per-rule cooldown stops the same line
-    # firing on every back-to-back utterance when the speaker stays on the
-    # same topic; after the cooldown, a fresh keyword hit re-fires.
-    SCRIPTED_COOLDOWN_S = 25.0
+    # Scripted heckle dispatch — match against THIS utterance's delta only.
+    # Each rule fires AT MOST ONCE per session (state['heckle_scripted_used']).
+    # Distinctive phrases in heckle.py keep matches tight; once-only stops
+    # the same beat firing again if the speaker echoes the phrase.
     triggered: Optional[TriggeredHeckle] = None
-    last_fires: dict[str, float] = state.setdefault("heckle_last_fire", {})
-    scripted = find_scripted_heckle(delta)
-    if scripted is not None:
-        s_judge, s_text, s_rule = scripted
-        now_ts = time.time()
-        last_ts = last_fires.get(s_rule, 0.0)
-        if now_ts - last_ts < SCRIPTED_COOLDOWN_S:
+    used_ids: set[str] = state.setdefault("heckle_scripted_used", set())
+    scripted = find_scripted_heckle(delta, used_ids=used_ids)
+    # Fallback: if no exact-keyword match, ask the embedding matcher.
+    # _SIMILARITY_THRESHOLD inside heckle.py keeps this strict so '10조' /
+    # '시장' 단편 발화는 trigger 안 됨 — only full-sentence paraphrases.
+    if scripted is None:
+        sim = await find_scripted_by_similarity(delta, used_ids=used_ids)
+        if sim is not None:
+            s_judge, s_text, s_rule, s_score = sim
+            scripted = (s_judge, s_text, s_rule)
             logger.info(
-                "[transcript-delta] scripted heckle %s suppressed by cooldown (%.1fs since last)",
+                "[transcript-delta] semantic match rule=%s score=%.3f",
                 s_rule,
-                now_ts - last_ts,
+                s_score,
             )
-            scripted = None
     if scripted is not None:
         s_judge, s_text, s_rule = scripted
-        last_fires[s_rule] = time.time()
+        used_ids.add(s_rule)
         # Hit the pre-warmed cache first (set at startup) for zero-latency
         # delivery; synthesize on the fly only if the warm step missed.
         s_voice = SCRIPTED_VOICE_CACHE.get(s_rule)

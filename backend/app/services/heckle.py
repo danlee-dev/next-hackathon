@@ -44,79 +44,155 @@ logger = logging.getLogger(__name__)
 # Matching is whitespace/punctuation-insensitive after _normalize().
 SCRIPTED_HECKLES: list[dict] = [
     # Beat 1 — 박독설 challenges the inflated TAM.
-    # Fires on ANY of: 10조 written together, "10 조" / "십 조" with a space,
-    # mention of global expansion, or both "조" + a market keyword nearby.
+    # Match ONLY long, distinctive phrases tied to the rehearsed line
+    # ("저희는 향후 글로벌 진출을 통해 10조 규모의 시장을 장악하겠습니다").
+    # Bare keywords like '10조' alone fired on unrelated mentions (e.g.
+    # '10조원 시장이 정말 크죠'); we now require the phrase that ONLY
+    # appears in the rehearsed line.
     {
         "id": "inflated_tam",
         "judge_id": "judge-critical",
+        # Exact-phrase keywords — fast path, fires immediately on a hit.
         "keywords": [
-            # numeric/word forms of the trillion-won figure
-            "10조",
-            "십조",
-            "수조",
-            "수십조",
-            "조원",
-            "조 규모",
-            "조 단위",
-            "조 시장",
-            # global expansion language
-            "글로벌 진출",
-            "글로벌 시장",
-            "글로벌 확장",
-            "해외 진출",
-            "해외 확장",
-            "전세계",
-            "전 세계",
-            "월드와이드",
-            "global total market",
-            "global market",
+            "글로벌 진출을 통해 10조",
+            "글로벌 진출을 통해 100조",
+            "해외 진출을 통해 10조",
+            "해외 진출을 통해 100조",
         ],
-        # Catch loose paraphrases — both tokens anywhere in window.
-        "keyword_groups": [
-            ["10", "조"],
-            ["100", "조"],
-            ["글로벌", "시장"],
-            ["글로벌", "장악"],
-            ["해외", "장악"],
+        # Reference utterances used to compute embeddings at startup.
+        # Any incoming utterance whose embedding is similar enough to ANY
+        # of these (cosine >= threshold) fires the beat — STT variants
+        # that drift from the keyword list are still caught semantically.
+        # Examples are tightly constrained to the rehearsed line so the
+        # embedding match only fires on a *full-sentence* paraphrase, not
+        # on any sentence that merely mentions '10조' in passing.
+        "examples": [
+            "저희는 향후 글로벌 진출을 통해 10조 규모의 시장을 장악하겠습니다",
+            "글로벌 진출을 통해 100조 규모의 시장을 장악하겠습니다",
         ],
         "text": (
             "잠깐만요, 발표자님. 국내 피칭 시장 규모만으론 10조는 "
             "지나치게 과장된 숫자 아닌가요? 거품 낀 숫자 아닙니까?"
         ),
     },
-    # Beat 2 — 김팩트 concedes the rebuttal after the speaker explains
-    # language-agnostic global expansion / multilingual support.
     {
         "id": "global_expansion_validated",
         "judge_id": "judge-fact",
         "keywords": [
-            "언어에 종속되지 않",
-            "언어 종속",
-            "언어 무관",
-            "언어 독립",
-            "다국어",
-            "다 국어",
-            "영어, 일어",
-            "영어와 일어",
-            "영어 일어",
-            "텍스트 데이터 해싱",
-            "데이터 해싱",
-            "해싱 기술",
-            "global total market",
-            "global market",
-            "여러 언어",
-            "모든 언어",
+            "다국어 모듈 테스트를 마친",
+            "다국어 모델 테스트를 마친",
+            "다국어 모듈 테스트 마친",
+            "다국어 모델 테스트 마친",
+            "global total market 기준",
+            "글로벌 토탈 마켓 기준",
+            "글로벌 진출을 포함한 global total market",
+            "글로벌 진출을 포함한 글로벌 토탈 마켓",
         ],
-        # Looser semantic combinations.
-        "keyword_groups": [
-            ["언어", "확장"],
-            ["언어", "지원"],
-            ["다국어", "모듈"],
-            ["글로벌", "포함"],
+        "examples": [
+            "이미 다국어 모듈 테스트를 마친 상태입니다",
+            "이미 다국어 모델 테스트를 마친 상태입니다",
+            "저희가 바라보는 10조는 글로벌 진출을 포함한 global total market 기준입니다",
+            "저희가 바라보는 시장은 글로벌 진출을 포함한 글로벌 토탈 마켓 기준입니다",
         ],
         "text": "글로벌 확장성 논리 타당함. 최종 신뢰 지수 15퍼센트 가산.",
     },
 ]
+
+
+# ─── Embedding-based semantic match (LLM fallback) ────────────────────────
+#
+# When the keyword list misses (STT drift, paraphrase), we fall back to
+# OpenAI text-embedding-3-small. Each rule's `examples` are embedded once
+# at startup; an incoming utterance's embedding is compared via cosine
+# similarity against every example, and the highest match wins if it
+# clears the threshold. Cheap (~50-100ms), survives most STT variations.
+
+import math as _math  # noqa: E402
+
+_EMBED_MODEL = "text-embedding-3-small"
+_SCRIPTED_EMBEDS: dict[str, list[list[float]]] = {}
+# Cosine threshold above which we treat a delta as "the rehearsed beat".
+# 0.78 keeps unrelated sentences from triggering while accepting most
+# paraphrases of the example utterances. Tune higher for fewer false
+# positives, lower for more recall.
+_SIMILARITY_THRESHOLD = 0.85
+# Don't bother running the embedding fallback on tiny utterances — short
+# fragments like '10조 시장이요' are too lexically thin to be a real
+# paraphrase of the rehearsed line and would only generate false positives.
+_MIN_DELTA_LEN_FOR_SIMILARITY = 18
+
+
+async def _embed(text: str) -> Optional[list[float]]:
+    client = openai_client()
+    if not client or not (text or "").strip():
+        return None
+    try:
+        resp = await client.embeddings.create(model=_EMBED_MODEL, input=text.strip())
+        return list(resp.data[0].embedding)
+    except Exception:
+        logger.exception("[embed] failed for: %s", text[:80])
+        return None
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    if not a or not b:
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = _math.sqrt(sum(x * x for x in a))
+    nb = _math.sqrt(sum(x * x for x in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
+
+
+async def warm_scripted_embeddings() -> None:
+    """Embed each rule's example utterances once at server startup."""
+    for rule in SCRIPTED_HECKLES:
+        rid = rule["id"]
+        if _SCRIPTED_EMBEDS.get(rid):
+            continue
+        vectors: list[list[float]] = []
+        for ex in rule.get("examples", []):
+            v = await _embed(ex)
+            if v:
+                vectors.append(v)
+        _SCRIPTED_EMBEDS[rid] = vectors
+        logger.info(
+            "[heckle] warmed %d embeddings for rule=%s",
+            len(vectors),
+            rid,
+        )
+
+
+async def find_scripted_by_similarity(
+    delta: str,
+    used_ids: Optional[set[str]] = None,
+) -> Optional[tuple[str, str, str, float]]:
+    """LLM-embedding fallback for when keyword matching misses.
+
+    Returns (judge_id, text, rule_id, score) or None. Skips rules already
+    in `used_ids`. Score is the best cosine similarity found.
+    """
+    used = used_ids or set()
+    if len(delta or "") < _MIN_DELTA_LEN_FOR_SIMILARITY:
+        return None
+    delta_v = await _embed(delta)
+    if not delta_v:
+        return None
+    best_rule = None
+    best_score = 0.0
+    for rule in SCRIPTED_HECKLES:
+        if rule["id"] in used:
+            continue
+        vectors = _SCRIPTED_EMBEDS.get(rule["id"], [])
+        for ex_v in vectors:
+            s = _cosine(delta_v, ex_v)
+            if s > best_score:
+                best_score = s
+                best_rule = rule
+    if best_rule is None or best_score < _SIMILARITY_THRESHOLD:
+        return None
+    return best_rule["judge_id"], best_rule["text"], best_rule["id"], best_score
 
 
 def _normalize(s: str) -> str:

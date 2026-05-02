@@ -48,14 +48,18 @@ app.include_router(realtime.router, prefix=API_PREFIX, tags=["realtime"])
 
 @app.on_event("startup")
 async def _on_startup() -> None:
-    """Pre-synthesize the scripted heckle voices so transcript-delta hits
-    return audio with zero ElevenLabs latency."""
+    """Pre-synthesize scripted heckle voices AND pre-compute scripted
+    example embeddings so live transcript-delta hits are zero-latency."""
     try:
-        from app.services.heckle import warm_scripted_voice_cache
+        from app.services.heckle import (
+            warm_scripted_embeddings,
+            warm_scripted_voice_cache,
+        )
 
         await warm_scripted_voice_cache()
+        await warm_scripted_embeddings()
     except Exception:
-        logger.exception("[startup] heckle voice warm-up failed")
+        logger.exception("[startup] heckle warm-up failed")
 
 
 @app.get("/")
