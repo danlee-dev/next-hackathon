@@ -29,6 +29,25 @@ export default function NewPitchPage() {
     });
   }, [router]);
 
+  const [permanentlyBlocked, setPermanentlyBlocked] = useState(false);
+
+  // 페이지 진입 시 Permissions API로 *영구 차단* 상태 미리 감지
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.permissions) return;
+    Promise.all([
+      navigator.permissions.query({ name: "camera" as PermissionName }).catch(() => null),
+      navigator.permissions.query({ name: "microphone" as PermissionName }).catch(() => null),
+    ]).then(([cam, mic]) => {
+      const blocked = cam?.state === "denied" || mic?.state === "denied";
+      if (blocked) setPermanentlyBlocked(true);
+      const granted = cam?.state === "granted" && mic?.state === "granted";
+      if (granted) {
+        setCamPerm("ok");
+        setMicPerm("ok");
+      }
+    });
+  }, []);
+
   async function requestPermissions() {
     if (!navigator.mediaDevices?.getUserMedia) {
       toast.error("이 브라우저는 카메라·마이크 API를 지원하지 않습니다.");
@@ -231,6 +250,9 @@ export default function NewPitchPage() {
             <PermissionRow label="카메라" state={camPerm} />
             <PermissionRow label="마이크" state={micPerm} />
           </div>
+          {permanentlyBlocked || camPerm === "denied" || micPerm === "denied" ? (
+            <BlockedGuide />
+          ) : null}
         </div>
 
         <div className="mt-8 flex flex-col gap-3">
@@ -315,6 +337,36 @@ function PermissionRow({ label, state }: { label: string; state: Permission }) {
       <span className={`font-mono text-[10.5px] uppercase tracking-[0.32em] ${stateColor}`}>
         {stateLabel}
       </span>
+    </div>
+  );
+}
+
+function BlockedGuide() {
+  return (
+    <div className="mt-3 rounded-lg border border-white/15 bg-white/[0.02] p-4">
+      <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/55">
+        권한이 영구 차단된 상태
+      </div>
+      <p className="mt-2 text-[13.5px] leading-[1.55] text-white/85">
+        이전에 차단을 한 번 누르면 Chrome 이 *prompt 자체를 다시 띄우지 않습니다*. 다음 두 가지 중
+        하나로 풀어주세요:
+      </p>
+      <ol className="mt-3 space-y-2 text-[13px] leading-[1.55] text-white/75">
+        <li className="flex gap-2">
+          <span className="font-mono text-white/40">01</span>
+          <span>
+            주소창 *왼쪽 자물쇠* 🔒 클릭 → "사이트 설정" → 카메라 / 마이크를 모두{" "}
+            <span className="text-white">허용</span> 으로 변경 → 페이지 새로고침
+          </span>
+        </li>
+        <li className="flex gap-2">
+          <span className="font-mono text-white/40">02</span>
+          <span>
+            새 시크릿 창 (<span className="font-mono">⌘ + Shift + N</span>) 으로 같은 URL 접속 →
+            prompt 새로 뜸
+          </span>
+        </li>
+      </ol>
     </div>
   );
 }
