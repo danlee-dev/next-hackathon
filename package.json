@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "prepare": "husky",
-    "frontend:dev": "pnpm --filter trustpitch-web dev",
-    "frontend:build": "pnpm --filter trustpitch-web build",
-    "frontend:test": "pnpm --filter trustpitch-web test",
-    "frontend:lint": "pnpm --filter trustpitch-web lint",
-    "frontend:typecheck": "pnpm --filter trustpitch-web typecheck"
+    "frontend:dev": "pnpm --dir frontend dev",
+    "frontend:build": "pnpm --dir frontend build",
+    "frontend:test": "pnpm --dir frontend test",
+    "frontend:lint": "pnpm --dir frontend lint",
+    "frontend:typecheck": "pnpm --dir frontend typecheck"
   },
   "devDependencies": {
     "husky": "^9.1.7",
@@ -16,7 +16,7 @@
   },
   "lint-staged": {
     "frontend/**/*.{ts,tsx,js,jsx,json}": [
-      "pnpm --filter trustpitch-web exec biome check --write --no-errors-on-unmatched"
+      "pnpm --dir frontend exec biome check --write --no-errors-on-unmatched"
     ]
   },
   "packageManager": "pnpm@10.11.0"
