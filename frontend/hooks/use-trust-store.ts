@@ -43,16 +43,20 @@ interface TrustStore {
   tick: (now: number) => void;
 }
 
+// Neutral starting values so trigger evaluation doesn't immediately fire
+// negative reactions before mediapipe / audio analysis has populated real
+// measurements. (eye_contact / pitch_stability of 0 used to trip every
+// "<40" rule and the speaker would see a wall of negative chips at t=0.)
 const initialMetrics: AggregateMetrics = {
-  eye_contact_ratio: 0,
-  head_stability: 0,
-  body_sway: 0,
-  gesture_usage: 0,
-  smile_naturalness: 0,
+  eye_contact_ratio: 50,
+  head_stability: 70,
+  body_sway: 30,
+  gesture_usage: 50,
+  smile_naturalness: 50,
   filler_count_per_min: 0,
-  pace_cpm: 0,
-  pitch_stability: 0,
-  volume_consistency: 0,
+  pace_cpm: 280,
+  pitch_stability: 60,
+  volume_consistency: 60,
   speech_ratio: 0,
   filler_count_total: 0,
 };

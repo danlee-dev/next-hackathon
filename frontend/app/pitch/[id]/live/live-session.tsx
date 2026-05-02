@@ -201,25 +201,30 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         argument_evidence_balance: 65,
       });
       const now = performance.now();
-      for (const ev of evals) {
-        const last = lastReactionRef.current[ev.judgeId] ?? 0;
-        if (now - last < 1500) continue;
-        const prev = trust.reactions[ev.judgeId];
-        // Don't overwrite a freshly-set LLM comment when the trigger expression
-        // matches — UNLESS it has been quiet for >10s. The backoff ensures every
-        // judge resurfaces with a fresh paraphrased line periodically instead of
-        // disappearing once their expression locks in.
-        if (prev?.expression === ev.expression && now - last < 10_000) continue;
-        lastReactionRef.current[ev.judgeId] = now;
-        trust.setReaction({
-          judge_id: ev.judgeId,
-          expression: ev.expression,
-          comment: ev.comment,
-          ts_ms: t.ts_ms,
-          trigger_metric: ev.trigger?.metric,
-          trigger_value: ev.trigger?.value,
-        });
-      }
+      // Warmup: don't fire trigger reactions for the first 8s or until the
+      // speaker has actually said ~30 chars. Otherwise zero-initialized
+      // metrics would trip every "<40" rule before measurement begins.
+      const triggerWarmup = t.ts_ms < 8000 || (trust.transcript || "").length < 30;
+      if (!triggerWarmup)
+        for (const ev of evals) {
+          const last = lastReactionRef.current[ev.judgeId] ?? 0;
+          if (now - last < 1500) continue;
+          const prev = trust.reactions[ev.judgeId];
+          // Don't overwrite a freshly-set LLM comment when the trigger expression
+          // matches — UNLESS it has been quiet for >10s. The backoff ensures every
+          // judge resurfaces with a fresh paraphrased line periodically instead of
+          // disappearing once their expression locks in.
+          if (prev?.expression === ev.expression && now - last < 10_000) continue;
+          lastReactionRef.current[ev.judgeId] = now;
+          trust.setReaction({
+            judge_id: ev.judgeId,
+            expression: ev.expression,
+            comment: ev.comment,
+            ts_ms: t.ts_ms,
+            trigger_metric: ev.trigger?.metric,
+            trigger_value: ev.trigger?.value,
+          });
+        }
 
       // periodic demo coach line
       if (now - lastCoachRef.current > 8000 && Math.random() < 0.4) {
@@ -304,24 +309,28 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         core_message_clarity: 65,
         argument_evidence_balance: 60,
       });
-      for (const ev of evals) {
-        const last = lastReactionRef.current[ev.judgeId] ?? 0;
-        if (now - last < 1500) continue;
-        const prev = trust.reactions[ev.judgeId];
-        // Skip when expression matches AND the judge spoke recently — but
-        // resurface with a fresh paraphrase after 10s of silence so each
-        // judge keeps showing up throughout the pitch.
-        if (prev?.expression === ev.expression && now - last < 10_000) continue;
-        lastReactionRef.current[ev.judgeId] = now;
-        trust.setReaction({
-          judge_id: ev.judgeId,
-          expression: ev.expression,
-          comment: ev.comment,
-          ts_ms: durationMs,
-          trigger_metric: ev.trigger?.metric,
-          trigger_value: ev.trigger?.value,
-        });
-      }
+      // Same warmup as the demo loop — wait until the speaker has actually
+      // started talking before letting trigger rules fire.
+      const triggerWarmup = durationMs < 8000 || (trust.transcript || "").length < 30;
+      if (!triggerWarmup)
+        for (const ev of evals) {
+          const last = lastReactionRef.current[ev.judgeId] ?? 0;
+          if (now - last < 1500) continue;
+          const prev = trust.reactions[ev.judgeId];
+          // Skip when expression matches AND the judge spoke recently — but
+          // resurface with a fresh paraphrase after 10s of silence so each
+          // judge keeps showing up throughout the pitch.
+          if (prev?.expression === ev.expression && now - last < 10_000) continue;
+          lastReactionRef.current[ev.judgeId] = now;
+          trust.setReaction({
+            judge_id: ev.judgeId,
+            expression: ev.expression,
+            comment: ev.comment,
+            ts_ms: durationMs,
+            trigger_metric: ev.trigger?.metric,
+            trigger_value: ev.trigger?.value,
+          });
+        }
       lastTickRef.current = now;
     }
 
@@ -472,6 +481,15 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
 
     const playHeckle = async () => {
       if (cancelled) return;
+      // Don't fire a heckle until the speaker has actually said enough that
+      // the LLM has real context. Otherwise the backend falls back to a
+      // generic VC line ("경쟁사가 내일 따라하면...") that lands awkwardly
+      // before the speaker has even introduced the company.
+      const transcriptLen = (useTrustStore.getState().transcript || "").length;
+      if (transcriptLen < 80) {
+        console.info("[heckle] skipping — transcript too short", transcriptLen);
+        return;
+      }
       console.info("[heckle] firing");
       try {
         const r = await fetchHeckle(sessionId);
