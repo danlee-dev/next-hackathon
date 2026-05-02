@@ -245,6 +245,8 @@ async def heckle(
     """
     state = session_state(session_id)
     transcript = state.get("transcript", "")
+    context = state.get("context") or {}
+    research = state.get("pre_research")
 
     recent: list[str] = state.setdefault("heckle_recent", [])
     if req and req.judge_id and req.judge_id in _JUDGE_NAME:
@@ -258,7 +260,7 @@ async def heckle(
     if len(recent) > 6:
         del recent[:-6]
 
-    text = await generate_heckle(judge_id, transcript)
+    text = await generate_heckle(judge_id, transcript, context=context, research=research)
     voice_b64 = await synthesize(text, judge_id)
     if voice_b64 is None:
         logger.warning(

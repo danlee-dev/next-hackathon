@@ -1,9 +1,13 @@
-"""VC-style heckle generator — short interrupting jabs from the three judges.
+"""VC-style heckle generator — short, context-aware interruptions.
 
 Used during the live pitch to inject pressure. Each judge's heckles map to
 their persona's pain points: 김팩트 hammers numbers, 이공감 challenges
 authenticity / founder-market fit, 박독설 picks at moats, differentiation,
 and competitive holes.
+
+The LLM receives both the *static pitch context* (title, script seed, IR
+deck text) and the *running transcript* so the jab references something
+the speaker actually said or claimed — not a generic VC platitude.
 
 Lines are kept short (10-30 Korean characters) so ElevenLabs synthesis stays
 under ~3-4 seconds and doesn't run over the speaker. Falls back to a
@@ -33,7 +37,7 @@ FALLBACK_HECKLES: dict[str, list[str]] = {
         "TAM이 너무 부풀려진 거 아닌가요?",
         "Burn rate가 월 얼마예요?",
         "Gross margin은 몇 퍼센트입니까?",
-        "지금까지 trasction 수치 보여주세요.",
+        "지금까지 traction 수치 보여주세요.",
         "월 활성 사용자가 정확히 몇 명이죠?",
         "다음 마일스톤까지 runway 몇 개월입니까?",
     ],
@@ -67,32 +71,64 @@ FALLBACK_HECKLES: dict[str, list[str]] = {
 PERSONA_PROMPT: dict[str, str] = {
     "judge-fact": (
         "당신은 데이터·숫자에 집착하는 한국 VC '김팩트'다. "
-        "발표 중간에 끼어들어 '시장 규모, 매출, CAC/LTV, 단위경제, traction 수치, "
+        "'시장 규모, 매출, CAC/LTV, 단위경제, traction 수치, "
         "burn rate, gross margin' 중 하나를 사정없이 묻는다. "
         "주관 X, 숫자만."
     ),
     "judge-connect": (
         "당신은 창업가 출신 한국 VC '이공감'이다. "
-        "발표 중간에 끼어들어 '왜 지금, 왜 당신, 왜 이 시장, 팀 결속, "
+        "'왜 지금, 왜 당신, 왜 이 시장, 팀 결속, "
         "파운더-마켓 fit, 진짜 고객의 고통' 중 하나를 진정성으로 추궁한다."
     ),
     "judge-critical": (
         "당신은 디테일에 강한 독설가 한국 VC '박독설'이다. "
-        "발표 중간에 끼어들어 '차별점, moat, 경쟁사, feature vs product, "
+        "'차별점, moat, 경쟁사, feature vs product, "
         "진입 장벽, 카피 위협, unfair advantage' 중 약점을 골라 찌른다."
     ),
 }
 
 
+def _format_research(research: Optional[dict]) -> str:
+    """Best-effort render of pre_research dict (from Tavily) into prompt text."""
+    if not research:
+        return ""
+    parts: list[str] = []
+    claims = research.get("claims") if isinstance(research, dict) else None
+    if claims:
+        for c in list(claims)[:3]:
+            if isinstance(c, dict):
+                txt = c.get("claim") or c.get("text") or ""
+                verdict = c.get("verdict") or c.get("status") or ""
+                if txt:
+                    parts.append(
+                        f"- {str(txt)[:120]}" + (f" (검증: {verdict})" if verdict else "")
+                    )
+            elif isinstance(c, str):
+                parts.append(f"- {c[:120]}")
+    market = research.get("market") if isinstance(research, dict) else None
+    if isinstance(market, dict):
+        size = market.get("size") or market.get("tam")
+        if size:
+            parts.append(f"- 알려진 시장 규모: {str(size)[:120]}")
+    competitors = research.get("competitors") if isinstance(research, dict) else None
+    if isinstance(competitors, list) and competitors:
+        names = [str(c.get("name") if isinstance(c, dict) else c)[:30] for c in competitors[:5]]
+        if names:
+            parts.append("- 알려진 경쟁사: " + ", ".join(n for n in names if n))
+    return "\n".join(parts).strip()
+
+
 async def generate_heckle(
     judge_id: str,
     transcript_excerpt: str,
-    metrics: Optional[dict] = None,
+    context: Optional[dict] = None,
+    research: Optional[dict] = None,
 ) -> str:
-    """LLM-generated VC-style jab; falls back to hand-crafted pool on failure.
+    """LLM-generated VC-style jab grounded in the actual pitch context.
 
     Returns ONE line, 10-30 Korean characters, ending with a question mark or
-    a sharp full stop.
+    a sharp full stop. Falls back to a hand-crafted pool when the LLM is
+    unavailable or returns junk.
     """
     fallback_pool = FALLBACK_HECKLES.get(judge_id) or FALLBACK_HECKLES["judge-fact"]
     fallback_line = random.choice(fallback_pool)
@@ -102,23 +138,53 @@ async def generate_heckle(
         return fallback_line
 
     persona = PERSONA_PROMPT.get(judge_id, PERSONA_PROMPT["judge-fact"])
-    excerpt = (transcript_excerpt or "").strip()[-1200:]
-    if not excerpt:
-        # Without transcript, an LLM call would invent context; just return fallback.
+    excerpt = (transcript_excerpt or "").strip()[-4000:]
+
+    ctx = context or {}
+    title = (ctx.get("title") or "").strip()[:120]
+    script_seed = (ctx.get("script") or "").strip()[:1800]
+    deck_text = (ctx.get("deck_text") or "").strip()[:1800]
+    research_block = _format_research(research)
+
+    # Without ANY signal we'd just be improvising — fall back instead of inventing.
+    if not excerpt and not script_seed and not deck_text:
         return fallback_line
+
+    pitch_block_parts: list[str] = []
+    if title:
+        pitch_block_parts.append(f"[발표 제목] {title}")
+    if script_seed:
+        pitch_block_parts.append(f"[발표자 스크립트 시드]\n{script_seed}")
+    if deck_text:
+        pitch_block_parts.append(f"[IR 덱 텍스트 발췌]\n{deck_text}")
+    if research_block:
+        pitch_block_parts.append(f"[사전 시장 리서치]\n{research_block}")
+    pitch_block = "\n\n".join(pitch_block_parts)
+
+    transcript_block = excerpt if excerpt else "(아직 발표자가 충분히 말하지 않음)"
 
     system = (
         f"{persona}\n\n"
         "규칙:\n"
         "- 한국어로 한 문장만.\n"
         "- 10~30자. 너무 길면 안 됨.\n"
-        "- 발표자가 *지금 막 한 말*에 대한 직접 반응이어야 함.\n"
+        "- 발표자가 *실제로 말한 내용 또는 회사가 주장한 사실* 을 직접 가리켜야 함.\n"
+        "- 일반론 X. '시장 규모 어떻게 되죠?' 같은 추상적 질문이 아니라,\n"
+        "  발표 안에 등장한 *구체적 단어·수치·주장·제품명·고객·시장 카테고리* 를 짚어 묻는다.\n"
         "- 격식 차리지 말고 짧고 날카롭게. VC가 회의실에서 끊고 들어오는 톤.\n"
         "- 일반적 격려 X. '좋네요' / '잘하시네요' 절대 X.\n"
         "- 막연한 칭찬·동의 X. 반드시 *질문 또는 도발*.\n"
         "- 출력은 그 한 문장만. 따옴표·prefix·explanation X."
     )
-    user = f"발표자 최근 발화:\n\n{excerpt}\n\n태클 한 줄:"
+
+    user = (
+        "다음은 이 회사의 피칭 컨텍스트와 발표자의 최근 발화입니다.\n\n"
+        f"## 회사·제품 컨텍스트 (정적)\n{pitch_block or '(컨텍스트 없음)'}\n\n"
+        f"## 발표자가 지금까지 한 말 (라이브 transcript)\n{transcript_block}\n\n"
+        "위 두 정보를 *모두* 보고, 발표 안에 실제로 등장한 구체적 요소를 골라 "
+        "한 줄 태클을 던지세요. 단순 일반 VC 질문 금지.\n\n"
+        "태클 한 줄:"
+    )
 
     try:
         resp = await client.chat.completions.create(
@@ -128,12 +194,11 @@ async def generate_heckle(
                 {"role": "user", "content": user},
             ],
             temperature=0.85,
-            max_tokens=80,
+            max_tokens=120,
         )
         text = (resp.choices[0].message.content or "").strip()
-        # Strip wrapping quotes if the model added any.
         text = text.strip().strip("\"'`")
-        # Defensive: if model output is too long, truncate to last sentence.
+        # Defensive truncation if the model went long.
         if len(text) > 60:
             for sep in ("?", ".", "!"):
                 idx = text.find(sep)
