@@ -135,7 +135,10 @@ export interface TranscriptDeltaRes {
   empty_phrases_delta: number;
   pace_cpm: number;
   filler_count_per_min: number;
+  trust_score: number;
+  visual_score: number;
   audio_score: number;
+  content_score: number;
 }
 
 export async function postTranscriptDelta(

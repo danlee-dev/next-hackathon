@@ -384,6 +384,14 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
             pace_cpm: res.pace_cpm,
             filler_count_per_min: res.filler_count_per_min,
           });
+          // Apply scores immediately so the dashboard reflects filler / pace
+          // penalties without waiting for the next visual-loop tick.
+          trust.updateScores({
+            trust: res.trust_score,
+            visual: res.visual_score,
+            audio: res.audio_score,
+            content: res.content_score,
+          });
         })
         .catch(() => {
           // backend transcript-delta down — interim/final still rendered

@@ -116,7 +116,10 @@ class TranscriptDeltaRes(BaseModel):
     empty_phrases_delta: int = 0
     pace_cpm: float
     filler_count_per_min: float
+    trust_score: float
+    visual_score: float
     audio_score: float
+    content_score: float
 
 
 @router.post("/sessions/{session_id}/transcript-delta", response_model=TranscriptDeltaRes)
@@ -172,7 +175,10 @@ async def transcript_delta(
         empty_phrases_delta=len(empties),
         pace_cpm=round(pace_cpm, 1),
         filler_count_per_min=round(filler_per_min, 2),
+        trust_score=scores.get("trust", 0.0),
+        visual_score=scores.get("visual", 0.0),
         audio_score=scores.get("audio", 0.0),
+        content_score=scores.get("content", 0.0),
     )
 
 
@@ -186,5 +192,8 @@ def _build_delta_res(state: dict) -> TranscriptDeltaRes:
         empty_phrases_delta=0,
         pace_cpm=metrics.get("pace_cpm", 0.0),
         filler_count_per_min=metrics.get("filler_count_per_min", 0.0),
+        trust_score=scores.get("trust", 0.0),
+        visual_score=scores.get("visual", 0.0),
         audio_score=scores.get("audio", 0.0),
+        content_score=scores.get("content", 0.0),
     )
