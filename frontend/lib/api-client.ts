@@ -175,6 +175,23 @@ export async function fetchLiveReaction(
   return res.json();
 }
 
+export interface HeckleRes {
+  judge_id: "judge-fact" | "judge-connect" | "judge-critical";
+  judge_name: string;
+  text: string;
+  voice_b64?: string | null;
+}
+
+export async function fetchHeckle(sessionId: string): Promise<HeckleRes> {
+  const res = await authedFetch(`/api/v1/sessions/${sessionId}/heckle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new Error(`heckle failed: ${res.status}`);
+  return res.json();
+}
+
 // Q&A
 export interface QnaQuestion {
   judge_id: string;

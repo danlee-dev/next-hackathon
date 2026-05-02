@@ -5,13 +5,17 @@ client_secret minted here. Audio (24 kHz PCM16 base64) flows browser ->
 OpenAI; transcription deltas come back to the browser, which forwards the
 text to /transcript-delta so the backend can run filler / pace / judge
 analysis on the canonical transcript.
+
+Also hosts /heckle — the live VC-style interruption that pairs an LLM jab
+with ElevenLabs TTS for actual audio playback in the speaker's browser.
 """
 
 from __future__ import annotations
 
 import logging
+import random
 import time
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,12 +24,22 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.deps import get_user_id
 from app.routers.sessions import session_state
+from app.services.elevenlabs_voice import synthesize
 from app.services.filler_detector import detect_empty_phrases, detect_fillers
+from app.services.heckle import generate_heckle
 from app.services.scoring import all_scores
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+_JUDGE_NAME: dict[str, str] = {
+    "judge-fact": "김팩트",
+    "judge-connect": "이공감",
+    "judge-critical": "박독설",
+}
+_JUDGE_IDS = list(_JUDGE_NAME.keys())
 
 
 class EphemeralSessionRes(BaseModel):
@@ -196,4 +210,64 @@ def _build_delta_res(state: dict) -> TranscriptDeltaRes:
         visual_score=scores.get("visual", 0.0),
         audio_score=scores.get("audio", 0.0),
         content_score=scores.get("content", 0.0),
+    )
+
+
+# ─── Heckle (mid-pitch VC jab) ─────────────────────────────────────────────
+
+
+class HeckleReq(BaseModel):
+    """Optionally pin which judge speaks; otherwise the server picks one
+    that hasn't spoken recently for variety."""
+
+    judge_id: Optional[str] = None
+
+
+class HeckleRes(BaseModel):
+    judge_id: str
+    judge_name: str
+    text: str
+    voice_b64: Optional[str] = None
+
+
+@router.post("/sessions/{session_id}/heckle", response_model=HeckleRes)
+async def heckle(
+    session_id: str,
+    req: HeckleReq | None = None,
+    user_id: str = Depends(get_user_id),
+) -> HeckleRes:
+    """Generate a VC-style interruption + ElevenLabs voice for live playback.
+
+    The frontend calls this on a randomized 45-75s schedule during the live
+    pitch. Server picks a judge (avoiding the most recent speaker), builds a
+    context-aware jab from the running transcript, and returns the line plus
+    base64 mp3 for instant playback.
+    """
+    state = session_state(session_id)
+    transcript = state.get("transcript", "")
+
+    recent: list[str] = state.setdefault("heckle_recent", [])
+    if req and req.judge_id and req.judge_id in _JUDGE_NAME:
+        judge_id = req.judge_id
+    else:
+        candidates = [j for j in _JUDGE_IDS if j not in recent[-1:]]
+        if not candidates:
+            candidates = _JUDGE_IDS
+        judge_id = random.choice(candidates)
+    recent.append(judge_id)
+    if len(recent) > 6:
+        del recent[:-6]
+
+    text = await generate_heckle(judge_id, transcript)
+    voice_b64 = await synthesize(text, judge_id)
+    if voice_b64 is None:
+        logger.warning(
+            "[heckle] ElevenLabs synthesis returned no audio (judge=%s) — sending text only",
+            judge_id,
+        )
+    return HeckleRes(
+        judge_id=judge_id,
+        judge_name=_JUDGE_NAME[judge_id],
+        text=text,
+        voice_b64=voice_b64,
     )

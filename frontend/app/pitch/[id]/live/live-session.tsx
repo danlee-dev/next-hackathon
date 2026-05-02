@@ -21,6 +21,7 @@ import { EMA } from "@/lib/analyzers/smoothing";
 import {
   coachSnapshot,
   createRealtimeSession,
+  fetchHeckle,
   fetchLiveReaction,
   finalizeSession,
   postTranscriptDelta,
@@ -63,6 +64,8 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
   const [count, setCount] = useState(COUNTDOWN_S);
   const [interim, setInterim] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
+  // Increments whenever a heckle lands; drives the red vignette pulse on screen.
+  const [heckleFlash, setHeckleFlash] = useState(0);
   const lastTickRef = useRef<number>(0);
   const lastVisualUploadRef = useRef<number>(0);
   const lastCoachRef = useRef<number>(0);
@@ -459,6 +462,68 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
     return () => window.clearInterval(id);
   }, [demoMode, phase, sessionId, trust, durationMs]);
 
+  // === HECKLE — 발표 중간에 VC 스타일 태클 (음성 + 화면 강조) ===
+  // 첫 발사: 발표 시작 60초 후. 이후 45-75초 랜덤 간격. 일시정지/종료 시 멈춤.
+  const heckleAudioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (demoMode || phase !== "live") return;
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const playHeckle = async () => {
+      if (cancelled) return;
+      try {
+        const r = await fetchHeckle(sessionId);
+        if (cancelled) return;
+        // Punch the heckler's reaction onto the panel + chip overlay.
+        trust.setReaction({
+          judge_id: r.judge_id,
+          expression: "doubt",
+          comment: r.text,
+          ts_ms: durationMs,
+        });
+        setHeckleFlash((k) => k + 1);
+        if (r.voice_b64) {
+          try {
+            heckleAudioRef.current?.pause();
+          } catch {}
+          const audio = new Audio(`data:audio/mpeg;base64,${r.voice_b64}`);
+          heckleAudioRef.current = audio;
+          audio.play().catch((err) => {
+            console.warn("[heckle] audio play blocked", err);
+          });
+        }
+      } catch (err) {
+        console.warn("[heckle] fetch failed", err);
+      }
+    };
+
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const delay = 45_000 + Math.floor(Math.random() * 30_000);
+      timer = window.setTimeout(async () => {
+        await playHeckle();
+        scheduleNext();
+      }, delay);
+    };
+
+    // First heckle 60s in so the speaker has time to set up.
+    timer = window.setTimeout(async () => {
+      await playHeckle();
+      scheduleNext();
+    }, 60_000);
+
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+      try {
+        heckleAudioRef.current?.pause();
+      } catch {}
+      heckleAudioRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoMode, phase, sessionId]);
+
   // 10s coach (real mode)
   useEffect(() => {
     if (demoMode || phase !== "live") return;
@@ -613,6 +678,24 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
               {phase === "live" || phase === "paused" ? (
                 <JudgeCommentOverlay judges={JUDGES} reactions={reactions} />
               ) : null}
+              {/* heckle red-vignette flash — 1s radial pulse whenever a VC jab lands. */}
+              <AnimatePresence>
+                {heckleFlash > 0 ? (
+                  <motion.div
+                    key={heckleFlash}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0, 0.85, 0] }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1.0, ease: "easeOut" }}
+                    className="pointer-events-none absolute inset-0 z-20"
+                    style={{
+                      background:
+                        "radial-gradient(ellipse at center, transparent 35%, rgba(248,113,113,0.55) 100%)",
+                    }}
+                    aria-hidden
+                  />
+                ) : null}
+              </AnimatePresence>
               {/* trust corner readout */}
               <div className="absolute right-3 top-3 rounded-full border border-white/12 bg-black/70 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.32em] text-white/75 backdrop-blur-md">
                 Trust {Math.round(scores.trust)}/100
