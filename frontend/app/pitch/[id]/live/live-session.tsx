@@ -47,6 +47,16 @@ interface Props {
 
 const COUNTDOWN_S = 3;
 
+// Show the manual heckle backup buttons in dev / preview, hide in production.
+// Override at any time by setting NEXT_PUBLIC_HECKLE_BUTTONS=1 (force on) or
+// =0 (force off) via Vercel env vars.
+const SHOW_HECKLE_BUTTONS: boolean = (() => {
+  const flag = process.env.NEXT_PUBLIC_HECKLE_BUTTONS;
+  if (flag === "1" || flag === "true") return true;
+  if (flag === "0" || flag === "false") return false;
+  return process.env.NODE_ENV !== "production";
+})();
+
 const DEMO_COACH_LINES = [
   "메시지 흐름이 좋아요. 핵심 숫자를 또박또박 강조해주세요.",
   "지금 시선이 잠깐 흔들렸어요. 카메라 정면으로 다시 잡아보세요.",
@@ -735,10 +745,10 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
               {demoMode ? <span className="text-white/65">· Simulated</span> : null}
             </div>
             <div className="flex items-center gap-3">
-              {phase === "live" || phase === "paused" ? (
+              {SHOW_HECKLE_BUTTONS && (phase === "live" || phase === "paused") ? (
                 <>
                   {/* Manual scripted-heckle backups for the demo —
-                      developer-style chips next to the controls. */}
+                      hidden in production via SHOW_HECKLE_BUTTONS. */}
                   <button
                     type="button"
                     onClick={() => triggerScriptedHeckle("inflated_tam")}

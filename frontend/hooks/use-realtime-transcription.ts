@@ -133,16 +133,11 @@ export function useRealtimeTranscription(enabled: boolean, opts: Options) {
                     transcription: {
                       model: "gpt-4o-mini-transcribe",
                       language: "ko",
-                      // Verbatim transcription — keep filler words ('음',
-                      // '어', '아', '그', '그러니까') intact so the live
-                      // filler-rate metric reflects what the speaker
-                      // actually said. The model otherwise tends to
-                      // "clean up" the speech.
-                      prompt:
-                        "발화를 한국어 그대로 받아쓴다. " +
-                        "필러어('음', '어', '아', '그', '그러니까', '약간', '뭐', '이제', '근데')와 " +
-                        "말 더듬, 망설임을 빠뜨리지 말고 들리는 그대로 적는다. " +
-                        "문장 정리·요약·생략 금지.",
+                      // NOTE: transcription.prompt is a prior-utterance
+                      // context hint in Realtime, not a behavioral
+                      // instruction — putting Korean instructions there
+                      // caused the model to echo them back as transcript.
+                      // The model is already close-to-verbatim by default.
                     },
                     turn_detection: {
                       type: "server_vad",

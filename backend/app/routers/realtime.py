@@ -74,17 +74,13 @@ async def create_realtime_session(user_id: str = Depends(get_user_id)) -> Epheme
                     "transcription": {
                         "model": "gpt-4o-mini-transcribe",
                         "language": "ko",
-                        # Critical for the demo: we use filler frequency
-                        # ('음', '어', '아', '그', '그러니까' …) as a live
-                        # metric, so the model must transcribe verbatim and
-                        # NOT politely strip them out.
-                        "prompt": (
-                            "발화를 한국어 그대로 받아쓴다. "
-                            "필러어('음', '어', '아', '그', '그러니까', "
-                            "'약간', '뭐', '이제', '근데')와 "
-                            "말 더듬, 망설임을 빠뜨리지 말고 들리는 그대로 적는다. "
-                            "문장 정리·요약·생략 금지."
-                        ),
+                        # NOTE: Realtime's transcription.prompt is a
+                        # *prior-utterance context hint*, not a behavioral
+                        # instruction. Putting Korean instructions there
+                        # caused the model to echo them back as part of
+                        # the transcript. gpt-4o-mini-transcribe is
+                        # already close-to-verbatim out of the box, so
+                        # we omit the field entirely.
                     },
                     # Tight VAD so utterance boundaries fire fast — the AI
                     # judges can interject within ~250ms of the speaker
