@@ -2,6 +2,7 @@
 
 import { JudgeCard } from "@/components/judges/judge-card";
 import { CoachMessage } from "@/components/pitch/coach-message";
+import { JudgeCommentOverlay } from "@/components/pitch/judge-comment-overlay";
 import { LiveTranscript } from "@/components/pitch/live-transcript";
 import { MetricsPanel } from "@/components/pitch/metrics-panel";
 import { TrustScoreCard } from "@/components/pitch/trust-score-card";
@@ -604,6 +605,11 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
                   cameraError={cameraError}
                 />
               )}
+              {/* judge comment overlay — floating chips on top of webcam so
+                  the speaker can read reactions without breaking eye contact. */}
+              {phase === "live" || phase === "paused" ? (
+                <JudgeCommentOverlay judges={JUDGES} reactions={reactions} />
+              ) : null}
               {/* trust corner readout */}
               <div className="absolute right-3 top-3 rounded-full border border-white/12 bg-black/70 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.32em] text-white/75 backdrop-blur-md">
                 Trust {Math.round(scores.trust)}/100
