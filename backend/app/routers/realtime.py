@@ -26,7 +26,7 @@ from app.deps import get_user_id
 from app.routers.sessions import session_state
 from app.services.elevenlabs_voice import synthesize
 from app.services.filler_detector import detect_empty_phrases, detect_fillers
-from app.services.heckle import generate_heckle
+from app.services.heckle import find_scripted_heckle, generate_heckle
 from app.services.scoring import all_scores
 
 logger = logging.getLogger(__name__)
@@ -249,18 +249,38 @@ async def heckle(
     research = state.get("pre_research")
 
     recent: list[str] = state.setdefault("heckle_recent", [])
+
+    # 1. Demo path: keyword-matched scripted heckle takes priority so the
+    #    pitch always lands the rehearsed dramatic beat (e.g. inflated TAM
+    #    -> 박독설 "거품 낀 숫자 아닙니까?"). When no rule matches, fall
+    #    through to the LLM-generated jab.
+    fired_scripted = False
     if req and req.judge_id and req.judge_id in _JUDGE_NAME:
         judge_id = req.judge_id
+        text = await generate_heckle(
+            judge_id, transcript, context=context, research=research
+        )
     else:
-        candidates = [j for j in _JUDGE_IDS if j not in recent[-1:]]
-        if not candidates:
-            candidates = _JUDGE_IDS
-        judge_id = random.choice(candidates)
+        scripted = find_scripted_heckle(transcript, recent_judges=recent)
+        if scripted is not None:
+            judge_id, text = scripted
+            fired_scripted = True
+            logger.info(
+                "[heckle] scripted fire judge=%s text=%s", judge_id, text
+            )
+        else:
+            candidates = [j for j in _JUDGE_IDS if j not in recent[-1:]]
+            if not candidates:
+                candidates = _JUDGE_IDS
+            judge_id = random.choice(candidates)
+            text = await generate_heckle(
+                judge_id, transcript, context=context, research=research
+            )
+
     recent.append(judge_id)
     if len(recent) > 6:
         del recent[:-6]
 
-    text = await generate_heckle(judge_id, transcript, context=context, research=research)
     voice_b64 = await synthesize(text, judge_id)
     if voice_b64 is None:
         logger.warning(

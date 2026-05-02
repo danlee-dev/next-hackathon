@@ -25,6 +25,119 @@ from app.core.openai_client import openai_client
 logger = logging.getLogger(__name__)
 
 
+# ─── Scripted heckles for the demo ────────────────────────────────────────
+# Hard-coded lines that fire deterministically when the speaker hits certain
+# keywords in their pitch — used so the demo always lands the dramatic beat
+# (e.g. "거품 낀 숫자 아닙니까?" when 10조 시장 규모 등장). Earlier rules win
+# when multiple match. Each rule pins WHICH judge speaks so personas stay
+# consistent. Returns None when nothing matches; the endpoint then falls
+# back to the LLM-generated path.
+SCRIPTED_HECKLES: list[dict] = [
+    # Inflated TAM — 박독설 가장 공격적
+    {
+        "judge_id": "judge-critical",
+        "keywords": [
+            "10조",
+            "100조",
+            "조원",
+            "조 규모",
+            "거대한 시장",
+            "엄청난 시장",
+            "global total market",
+            "글로벌 진출",
+            "글로벌 시장",
+        ],
+        "text": "거품 낀 숫자 아닙니까?",
+    },
+    # 시장 규모 일반 — 김팩트 산정 근거 추궁
+    {
+        "judge_id": "judge-fact",
+        "keywords": ["시장 규모", "TAM", "시장 사이즈", "시장이 얼마"],
+        "text": "그 시장 규모 산정 근거가 뭐죠?",
+    },
+    # 매출 / traction — 김팩트 구체 수치 요구
+    {
+        "judge_id": "judge-fact",
+        "keywords": ["매출", "월 매출", "ARR", "MRR", "traction", "트랙션"],
+        "text": "지난 분기 정확한 매출 숫자가 어떻게 됩니까?",
+    },
+    # 차별점 / 기술 우위 — 박독설 카피 위협
+    {
+        "judge_id": "judge-critical",
+        "keywords": [
+            "차별점",
+            "차별화",
+            "moat",
+            "우리만",
+            "유일",
+            "최초",
+            "독보적",
+            "기술적 우위",
+        ],
+        "text": "구글이 내일 따라 만들면 어떡하실 건가요?",
+    },
+    # AI / 기술 자랑 — 박독설 feature vs product
+    {
+        "judge_id": "judge-critical",
+        "keywords": ["AI", "GPT", "LLM", "딥러닝", "머신러닝", "모델"],
+        "text": "그건 feature지, product 아닌가요?",
+    },
+    # 팀 / 창업자 — 이공감 결속력 추궁
+    {
+        "judge_id": "judge-connect",
+        "keywords": ["팀", "공동창업자", "co-founder", "창업 멤버", "저희 팀"],
+        "text": "공동창업자 두 분, 얼마나 같이 일하셨어요?",
+    },
+    # 고객 / 유저 — 이공감 진정성
+    {
+        "judge_id": "judge-connect",
+        "keywords": ["고객", "유저", "사용자", "user", "customer"],
+        "text": "그 고객들, 직접 만나서 들어보셨나요?",
+    },
+    # 경쟁사 — 박독설 정면
+    {
+        "judge_id": "judge-critical",
+        "keywords": ["경쟁사", "경쟁", "competitor"],
+        "text": "그래서 이미 그거 하는 회사가 세 개는 있는데요.",
+    },
+    # CAC / LTV / 단위경제 — 김팩트
+    {
+        "judge_id": "judge-fact",
+        "keywords": ["CAC", "LTV", "단위경제", "유닛 이코노믹스", "획득비용"],
+        "text": "CAC 대비 LTV 몇 배입니까?",
+    },
+    # Why now — 이공감
+    {
+        "judge_id": "judge-connect",
+        "keywords": ["지금이 적기", "타이밍", "왜 지금", "now is the time"],
+        "text": "왜 작년이 아니고 지금이어야 하죠?",
+    },
+]
+
+
+def find_scripted_heckle(
+    transcript: str,
+    recent_judges: Optional[list[str]] = None,
+) -> Optional[tuple[str, str]]:
+    """Match the most recent ~600 chars of transcript against SCRIPTED_HECKLES.
+
+    Returns (judge_id, text) on first match, else None. Skips a rule whose
+    judge just spoke (recent_judges last entry) so the same judge doesn't
+    fire two scripted lines back-to-back.
+    """
+    if not transcript:
+        return None
+    window = transcript[-600:]
+    last_speaker = recent_judges[-1] if recent_judges else None
+    for rule in SCRIPTED_HECKLES:
+        if rule["judge_id"] == last_speaker:
+            continue
+        for kw in rule["keywords"]:
+            if kw and kw in window:
+                return rule["judge_id"], rule["text"]
+    return None
+
+
 # Hand-crafted fallback heckles per judge — used when the LLM call fails
 # or the OpenAI key is missing. These are real VC questions paraphrased
 # down to a single sharp line.
