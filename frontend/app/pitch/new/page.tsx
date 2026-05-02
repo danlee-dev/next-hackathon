@@ -30,6 +30,14 @@ export default function NewPitchPage() {
   }, [router]);
 
   async function requestPermissions() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error("이 브라우저는 카메라·마이크 API를 지원하지 않습니다.");
+      return;
+    }
+    if (window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
+      toast.error("HTTPS 또는 localhost 환경에서만 권한을 요청할 수 있습니다.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480 },
@@ -39,10 +47,25 @@ export default function NewPitchPage() {
       setCamPerm("ok");
       setMicPerm("ok");
       toast.success("권한 확인 완료");
-    } catch {
+    } catch (e: unknown) {
+      const err = e as { name?: string; message?: string };
+      const name = err?.name || "UnknownError";
+      const msg = err?.message || String(e);
       setCamPerm("denied");
       setMicPerm("denied");
-      toast.error("카메라·마이크 권한이 거부되었습니다.");
+      console.error("[getUserMedia]", name, msg);
+      if (name === "NotAllowedError") {
+        toast.error(
+          "권한이 차단됨 — 주소창 왼쪽 자물쇠 아이콘 → 카메라·마이크 '재설정' 후 다시 시도",
+          { duration: 8000 },
+        );
+      } else if (name === "NotFoundError") {
+        toast.error("카메라 또는 마이크가 연결되지 않음");
+      } else if (name === "NotReadableError") {
+        toast.error("다른 앱이 카메라·마이크를 점유 중입니다 (Zoom/Teams 등 종료)");
+      } else {
+        toast.error(`${name}: ${msg}`);
+      }
     }
   }
 
