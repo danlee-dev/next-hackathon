@@ -597,7 +597,11 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
               </div>
             </div>
           </div>
-          <LiveTranscript finalText={transcript} interimText={interim} />
+          <LiveTranscript
+            finalText={transcript}
+            interimText={interim}
+            fillerPulseKey={trust.filler_total}
+          />
           <CoachMessage message={coach?.text ?? null} />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
@@ -804,9 +808,42 @@ function MiniScore({
   hint?: string;
 }) {
   const isPending = value === null;
-  const isLow = !isPending && (value as number) < 45;
+  const v = (value as number) ?? 0;
+  const tier: "ok" | "caution" | "risk" = isPending
+    ? "ok"
+    : v < 50
+      ? "risk"
+      : v < 65
+        ? "caution"
+        : "ok";
+  const numberClass =
+    tier === "risk" ? "text-red-400" : tier === "caution" ? "text-amber-300" : "text-white";
+  const ringClass =
+    tier === "risk"
+      ? "border-red-400/40"
+      : tier === "caution"
+        ? "border-amber-300/30"
+        : "border-white/8";
   return (
-    <div className="rounded-2xl border border-white/8 bg-black px-4 py-3">
+    <motion.div
+      animate={
+        tier === "risk"
+          ? {
+              boxShadow: [
+                "0 0 0 0 rgba(248,113,113,0)",
+                "0 0 12px 0 rgba(248,113,113,0.4)",
+                "0 0 0 0 rgba(248,113,113,0)",
+              ],
+            }
+          : { boxShadow: "0 0 0 0 rgba(0,0,0,0)" }
+      }
+      transition={
+        tier === "risk"
+          ? { duration: 1.6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }
+          : { duration: 0.3 }
+      }
+      className={`rounded-2xl border bg-black px-4 py-3 transition-colors ${ringClass}`}
+    >
       <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
         <span>{label}</span>
         {live ? <span className="text-white/35">live</span> : null}
@@ -822,12 +859,12 @@ function MiniScore({
         </div>
       ) : (
         <div
-          className={`mt-1 font-mono text-[24px] font-medium tabular-nums ${isLow ? "text-white/55" : "text-white"}`}
+          className={`mt-1 font-mono text-[24px] font-medium tabular-nums transition-colors ${numberClass}`}
         >
-          {Math.round(value as number)}
+          {Math.round(v)}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

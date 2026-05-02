@@ -25,6 +25,9 @@ const EMPTY_PHRASES = ["혁신적인", "최고의", "절대적", "무조건", "�
 interface Props {
   finalText: string;
   interimText: string;
+  /** Increments whenever the speaker is detected to have used a filler word.
+   * Used to flash the left border red as a real-time UX cue. */
+  fillerPulseKey?: number;
 }
 
 function highlight(text: string) {
@@ -89,7 +92,7 @@ function highlight(text: string) {
   });
 }
 
-export function LiveTranscript({ finalText, interimText }: Props) {
+export function LiveTranscript({ finalText, interimText, fillerPulseKey = 0 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     ref.current?.scrollTo({
@@ -100,6 +103,20 @@ export function LiveTranscript({ finalText, interimText }: Props) {
 
   return (
     <div className="relative h-32 overflow-hidden rounded-2xl border border-white/8 bg-black px-5 py-4">
+      {/* left edge filler pulse — flashes red for ~600ms whenever a new
+          filler/empty-phrase utterance is detected. */}
+      <AnimatePresence>
+        {fillerPulseKey > 0 ? (
+          <motion.span
+            key={fillerPulseKey}
+            initial={{ opacity: 0.95, scaleY: 0.4 }}
+            animate={{ opacity: 0, scaleY: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="pointer-events-none absolute inset-y-2 left-0 w-0.75 origin-center rounded-full bg-red-400"
+            aria-hidden
+          />
+        ) : null}
+      </AnimatePresence>
       <div className="mb-2 flex items-center gap-3">
         <span className="inline-block h-px w-4 bg-white" aria-hidden />
         <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/45">
