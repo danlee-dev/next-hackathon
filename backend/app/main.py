@@ -4,6 +4,13 @@ from __future__ import annotations
 
 import logging
 
+# Load backend/.env into os.environ before any module reads it. pydantic
+# Settings reads .env into its own instance but does NOT populate os.environ,
+# so services that call os.getenv directly (elevenlabs_voice, etc.) need this.
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
