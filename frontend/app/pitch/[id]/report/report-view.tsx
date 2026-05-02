@@ -67,20 +67,51 @@ export function ReportView({ sessionId, demoMode = false }: Props) {
           judge_summaries: r.judge_summaries,
         }),
       )
-      .catch(() => {
+      .catch((e) => {
+        // backend /report 실패 — *정직하게* 분석 불가 표시. 가짜 점수 X.
+        console.error("[report] fetch failed", e);
+        const noSpeech = !store.transcript || store.transcript.trim().length < 30;
+        const noVisual = (store.metrics.eye_contact_ratio || 0) === 0;
+        if (noSpeech && noVisual) {
+          // 정말로 입력 신호 0 — 진짜 평가 못 함
+          setReport({
+            session_id: sessionId,
+            trust_score: 0,
+            visual_score: 0,
+            audio_score: 0,
+            content_score: 0,
+            strengths: [],
+            weaknesses: [
+              "발표 음성·전사 신호 부족 — 분석 불가",
+              "마이크 권한 + 30초 이상 발표 필요",
+            ],
+            action_items: [
+              "마이크 권한이 차단되지 않았는지 확인 (자물쇠 → 사이트 설정).",
+              "Devtools Network 탭에서 /audio-chunk 요청이 5초마다 보이는지 확인.",
+              "Backend Railway 로그에 audio-chunk POST 가 들어오는지 확인.",
+            ],
+            judge_summaries: {
+              "judge-fact": "발표 신호 없음 — 평가 보류.",
+              "judge-connect": "발표 신호 없음 — 평가 보류.",
+              "judge-critical": "발표 신호 없음 — 평가 보류.",
+            },
+          });
+          return;
+        }
+        // 부분적 신호 있음 — store 기반 휴리스틱 (진짜 측정값 활용)
         setReport({
           session_id: sessionId,
-          trust_score: store.scores.trust || 70,
-          visual_score: store.scores.visual || 65,
-          audio_score: store.scores.audio || 72,
-          content_score: store.scores.content || 60,
+          trust_score: store.scores.trust || 0,
+          visual_score: store.scores.visual || 0,
+          audio_score: store.scores.audio || 0,
+          content_score: 0, // content 는 LLM 없이 평가 불가
           strengths: deriveStrengths(store),
           weaknesses: deriveWeaknesses(store),
           action_items: deriveActions(store),
           judge_summaries: {
-            "judge-fact": "데이터의 명확함은 좋으나 결론이 다소 약합니다.",
-            "judge-connect": "진정성이 느껴졌습니다. 시선만 더 잡아주세요.",
-            "judge-critical": `필러워드 ${store.filler_total}회. 분당 ${Math.round(store.metrics.filler_count_per_min)}회는 줄여야 합니다.`,
+            "judge-fact": "백엔드 LLM 평가 미연결 — 휴리스틱만 표시.",
+            "judge-connect": "백엔드 LLM 평가 미연결 — 휴리스틱만 표시.",
+            "judge-critical": `필러워드 ${store.filler_total}회 (${Math.round(store.metrics.filler_count_per_min)}/분).`,
           },
         });
       })
