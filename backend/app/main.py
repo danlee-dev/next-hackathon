@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
@@ -50,4 +50,23 @@ def healthz() -> dict[str, object]:
         "supabase": settings.supabase_configured,
         "openai": bool(settings.OPENAI_API_KEY),
         "demo_mode": settings.DEMO_MODE,
+        "jwt_verify": bool(settings.SUPABASE_JWT_SECRET),
     }
+
+
+@app.get("/api/v1/me")
+def me(authorization: str | None = Header(default=None)) -> dict[str, object]:
+    """디버그 — 본인 user_id 가 정확히 디코딩되는지 확인.
+
+    Authorization: Bearer <token> 으로 호출. 정상이면 본인 supabase user_id (uuid).
+    `00000000-...` 가 나오면 JWT_SECRET 또는 token 문제.
+    """
+    from app.deps import get_user_id
+
+    try:
+        uid = get_user_id(authorization)
+        return {"user_id": uid, "ok": True, "is_placeholder": uid.startswith("00000000")}
+    except HTTPException as e:
+        return {"user_id": None, "ok": False, "error": e.detail, "status": e.status_code}
+    except Exception as e:
+        return {"user_id": None, "ok": False, "error": str(e)}

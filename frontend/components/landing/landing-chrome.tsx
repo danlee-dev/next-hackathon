@@ -1,5 +1,6 @@
 "use client";
 
+import { LogoMark } from "@/components/brand/logo-mark";
 import { motion, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 
@@ -22,14 +23,8 @@ export function LandingChrome() {
       className="fixed inset-x-0 top-0 z-50 backdrop-blur-md"
     >
       <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between px-5 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="grid h-5 w-5 place-items-center rounded-sm bg-white text-[10px] font-black text-black"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            T
-          </span>
+        <Link href="/" className="flex items-center gap-2.5">
+          <LogoMark size={22} />
           <span
             className="font-mono text-[11px] uppercase tracking-[0.32em] text-white"
             style={{ fontFeatureSettings: '"tnum"' }}

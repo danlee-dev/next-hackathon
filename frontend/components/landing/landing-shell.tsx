@@ -1,5 +1,6 @@
 "use client";
 
+import { LogoMark } from "@/components/brand/logo-mark";
 import Link from "next/link";
 
 /**
@@ -17,14 +18,8 @@ export function AppShell({
     <div className="relative min-h-dvh bg-black text-white">
       <header className="sticky top-0 z-30 border-b border-white/8 bg-black/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between px-6">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="grid h-5 w-5 place-items-center rounded-sm bg-white text-[10px] font-black text-black"
-              style={{ fontFamily: "var(--font-mono)" }}
-            >
-              T
-            </span>
+          <Link href="/dashboard" className="flex items-center gap-2.5">
+            <LogoMark size={22} />
             <span className="font-mono text-[11px] uppercase tracking-[0.32em] text-white">
               TrustPitch
             </span>
