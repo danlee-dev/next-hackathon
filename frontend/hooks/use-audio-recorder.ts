@@ -10,9 +10,9 @@ export interface AudioChunkInfo {
 }
 
 /**
- * MediaRecorder 5초 청크. onChunk 는 ref 로 보관해서 useEffect 재실행 트리거하지 X.
- * (LiveSession 의 durationMs 의존 useCallback 이 매 tick 재생성돼 recorder 가
- * 계속 재시작되던 버그 수정.)
+ * MediaRecorder 5초 청크. 매 사이클마다 stop -> start 로 *독립적인* webm
+ * 파일 청크를 만든다. timeslice 모드 (`recorder.start(ms)`) 는 두 번째
+ * 청크부터 webm 헤더 없는 raw fragment 라 Whisper 가 디코딩 못 함.
  */
 export function useAudioRecorder(
   enabled: boolean,
@@ -33,6 +33,7 @@ export function useAudioRecorder(
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    let cycleTimer: number | null = null;
     setState("requesting");
 
     (async () => {
@@ -54,27 +55,43 @@ export function useAudioRecorder(
 
         const mime =
           MediaRecorder.isTypeSupported("audio/webm;codecs=opus") && "audio/webm;codecs=opus";
-        const recorder = mime
-          ? new MediaRecorder(stream, { mimeType: mime })
-          : new MediaRecorder(stream);
-        recorderRef.current = recorder;
+
+        const startCycle = () => {
+          if (cancelled) return;
+          const recorder = mime
+            ? new MediaRecorder(stream, { mimeType: mime })
+            : new MediaRecorder(stream);
+          recorderRef.current = recorder;
+
+          recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              const startMs = indexRef.current * CHUNK_MS;
+              onChunkRef.current(e.data, { index: indexRef.current, startMs });
+              indexRef.current += 1;
+            }
+          };
+          recorder.onerror = (e) => {
+            const msg = (e as ErrorEvent).message || "unknown";
+            console.error("[recorder] error", msg);
+            setError(`recorder error: ${msg}`);
+            setState("error");
+          };
+          recorder.onstop = () => {
+            if (!cancelled) startCycle();
+          };
+
+          recorder.start();
+          cycleTimer = window.setTimeout(() => {
+            if (recorder.state === "recording") {
+              try {
+                recorder.stop();
+              } catch {}
+            }
+          }, CHUNK_MS);
+        };
+
         startedAtRef.current = performance.now();
-
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            const startMs = indexRef.current * CHUNK_MS;
-            onChunkRef.current(e.data, { index: indexRef.current, startMs });
-            indexRef.current += 1;
-          }
-        };
-        recorder.onerror = (e) => {
-          const msg = (e as ErrorEvent).message || "unknown";
-          console.error("[recorder] error", msg);
-          setError(`recorder error: ${msg}`);
-          setState("error");
-        };
-
-        recorder.start(CHUNK_MS);
+        startCycle();
         setState("recording");
         console.info("[recorder] started", { mime, chunkMs: CHUNK_MS });
       } catch (e) {
@@ -88,9 +105,12 @@ export function useAudioRecorder(
 
     return () => {
       cancelled = true;
+      if (cycleTimer) window.clearTimeout(cycleTimer);
       try {
-        if (recorderRef.current?.state === "recording") {
-          recorderRef.current.stop();
+        const r = recorderRef.current;
+        if (r) {
+          r.onstop = null;
+          if (r.state === "recording") r.stop();
         }
       } catch {}
       streamRef.current?.getTracks().forEach((t) => t.stop());
