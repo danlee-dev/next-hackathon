@@ -203,8 +203,10 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         if (now - last < 1500) continue;
         const prev = trust.reactions[ev.judgeId];
         // Don't overwrite a freshly-set LLM comment when the trigger expression
-        // matches what's already on screen — only fire on real expression changes.
-        if (prev?.expression === ev.expression) continue;
+        // matches — UNLESS it has been quiet for >10s. The backoff ensures every
+        // judge resurfaces with a fresh paraphrased line periodically instead of
+        // disappearing once their expression locks in.
+        if (prev?.expression === ev.expression && now - last < 10_000) continue;
         lastReactionRef.current[ev.judgeId] = now;
         trust.setReaction({
           judge_id: ev.judgeId,
@@ -303,9 +305,10 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
         const last = lastReactionRef.current[ev.judgeId] ?? 0;
         if (now - last < 1500) continue;
         const prev = trust.reactions[ev.judgeId];
-        // Don't clobber a freshly-set LLM comment when the trigger expression
-        // is unchanged — fire only on real expression flips.
-        if (prev?.expression === ev.expression) continue;
+        // Skip when expression matches AND the judge spoke recently — but
+        // resurface with a fresh paraphrase after 10s of silence so each
+        // judge keeps showing up throughout the pitch.
+        if (prev?.expression === ev.expression && now - last < 10_000) continue;
         lastReactionRef.current[ev.judgeId] = now;
         trust.setReaction({
           judge_id: ev.judgeId,
