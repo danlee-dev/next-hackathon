@@ -70,6 +70,16 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
   const trust = useTrustStore();
   const { metrics, scores, reactions, transcript, coach, durationMs, isLive } = trust;
 
+  // Wipe previous-run state immediately on mount when entering a new session,
+  // so the arming/countdown screen never shows stale transcript/fillers/reactions
+  // from the prior live run.
+  useEffect(() => {
+    if (useTrustStore.getState().sessionId !== sessionId) {
+      useTrustStore.getState().reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
   const headTracker = useMemo(() => new HeadStabilityTracker(), []);
   const swayTracker = useMemo(() => new BodySwayTracker(), []);
   const gestureTracker = useMemo(() => new GestureUsageTracker(), []);

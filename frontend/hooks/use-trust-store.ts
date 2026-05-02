@@ -79,7 +79,25 @@ export const useTrustStore = create<TrustStore>((set) => ({
   timeline: [],
   transcript: "",
 
-  setSession: (id) => set({ sessionId: id }),
+  // Switching sessions (or re-arming) wipes all per-run state. Without this
+  // the previous run's transcript / fillers / reactions / timeline persist
+  // into the new live screen because the zustand store is a singleton.
+  setSession: (id) =>
+    set({
+      sessionId: id,
+      startedAt: null,
+      durationMs: 0,
+      isLive: false,
+      isFinalizing: false,
+      metrics: initialMetrics,
+      scores: initialScores,
+      filler_total: 0,
+      filler_events: [],
+      reactions: {},
+      coach: null,
+      timeline: [],
+      transcript: "",
+    }),
   start: () => set({ isLive: true, startedAt: performance.now() }),
   stop: () => set({ isLive: false }),
   beginFinalize: () => set({ isFinalizing: true }),
