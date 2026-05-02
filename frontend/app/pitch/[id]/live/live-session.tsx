@@ -361,11 +361,13 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
 
   useAudioRecorder(!demoMode && phase === "live", onAudioChunk);
 
+  // Web Speech API — *interim 자막만* 표시 (즉각적 시각 피드백). final 은 무시.
+  // 한국어 정확도 약하므로 store 의 canonical transcript 는 backend Whisper 로만 채움.
   useSpeechRecognition(!demoMode && phase === "live", {
     onInterim: setInterim,
-    onFinal: (t) => {
+    onFinal: () => {
       setInterim("");
-      trust.appendTranscript(t);
+      // intentionally NOT appending to store — Whisper canonical wins
     },
   });
 
