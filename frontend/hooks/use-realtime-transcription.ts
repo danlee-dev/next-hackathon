@@ -21,7 +21,10 @@ interface Options {
 type Status = "idle" | "connecting" | "live" | "stopped" | "error";
 
 const SAMPLE_RATE = 24000;
-const REALTIME_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-mini-transcribe";
+// GA Realtime transcription-only session uses ?intent=transcription, NOT ?model=...
+// (?model=... is for conversation sessions; gpt-4o-mini-transcribe is not a valid
+// conversation model and the server returns invalid_model.)
+const REALTIME_URL = "wss://api.openai.com/v1/realtime?intent=transcription";
 
 function floatToPcm16Base64(input: Float32Array): string {
   const out = new Int16Array(input.length);
@@ -162,7 +165,13 @@ export function useRealtimeTranscription(enabled: boolean, opts: Options) {
           ) {
             optsRef.current.onCompleted?.(evt.transcript);
           } else if (evt.type === "error") {
-            console.error("[realtime] server error", evt);
+            const detail = (evt as { error?: unknown }).error ?? evt;
+            console.error(
+              "[realtime] server error",
+              JSON.stringify(detail, null, 2),
+              "raw:",
+              ev.data,
+            );
           }
         };
 
