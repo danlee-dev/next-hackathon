@@ -184,6 +184,19 @@ export async function fetchLiveReaction(
   return res.json();
 }
 
+export async function fireScriptedHeckle(
+  sessionId: string,
+  ruleId: "inflated_tam" | "global_expansion_validated",
+): Promise<TriggeredHeckle> {
+  const res = await authedFetch(`/api/v1/sessions/${sessionId}/heckle/scripted`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rule_id: ruleId }),
+  });
+  if (!res.ok) throw new Error(`scripted heckle failed: ${res.status}`);
+  return res.json();
+}
+
 export interface HeckleRes {
   judge_id: "judge-fact" | "judge-connect" | "judge-critical";
   judge_name: string;

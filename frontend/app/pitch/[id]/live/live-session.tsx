@@ -23,6 +23,7 @@ import {
   createRealtimeSession,
   fetchLiveReaction,
   finalizeSession,
+  fireScriptedHeckle,
   postTranscriptDelta,
   uploadAudioChunk,
   uploadVisualTick,
@@ -507,6 +508,43 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
   // demo-script order.
   const heckleAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Manual scripted-heckle trigger — demo backup so the speaker can still
+  // fire either rehearsed beat by hand when the keyword/embedding match
+  // misses on stage. Plays the cached ElevenLabs voice + sets the judge's
+  // reaction + triggers the red vignette, identical to the auto path.
+  const triggerScriptedHeckle = useCallback(
+    async (ruleId: "inflated_tam" | "global_expansion_validated") => {
+      try {
+        const r = await fireScriptedHeckle(sessionId, ruleId);
+        trust.setReaction({
+          judge_id: r.judge_id,
+          expression: ruleId === "global_expansion_validated" ? "nod" : "doubt",
+          comment: r.text,
+          ts_ms: Math.round(durationMs),
+        });
+        setHeckleFlash((k) => k + 1);
+        if (r.voice_b64) {
+          try {
+            heckleAudioRef.current?.pause();
+          } catch {}
+          const audio = new Audio(`data:audio/mpeg;base64,${r.voice_b64}`);
+          heckleAudioRef.current = audio;
+          audio.volume = 1.0;
+          audio.play().catch((err) => {
+            console.warn("[heckle/manual] audio play blocked", err);
+            toast.warning("브라우저가 자동재생을 막았어요. 화면을 한 번 클릭해주세요.");
+          });
+        } else {
+          toast.warning(`태클이 발사됐지만 음성이 없어요: "${r.text}"`);
+        }
+      } catch (err) {
+        console.warn("[heckle/manual] failed", err);
+        toast.error("수동 태클 호출 실패");
+      }
+    },
+    [sessionId, durationMs, trust],
+  );
+
   // 10s coach (real mode)
   useEffect(() => {
     if (demoMode || phase !== "live") return;
@@ -697,6 +735,28 @@ export function LiveSession({ sessionId, title, demoMode = false }: Props) {
               {demoMode ? <span className="text-white/65">· Simulated</span> : null}
             </div>
             <div className="flex items-center gap-3">
+              {phase === "live" || phase === "paused" ? (
+                <>
+                  {/* Manual scripted-heckle backups for the demo —
+                      developer-style chips next to the controls. */}
+                  <button
+                    type="button"
+                    onClick={() => triggerScriptedHeckle("inflated_tam")}
+                    title="박독설 - 거품 낀 숫자 아닙니까?"
+                    className="rounded-full border border-red-400/50 bg-red-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.28em] text-red-200 transition-colors hover:bg-red-500/20"
+                  >
+                    Heckle 1
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => triggerScriptedHeckle("global_expansion_validated")}
+                    title="김팩트 - 글로벌 확장성 논리 타당함"
+                    className="rounded-full border border-emerald-300/50 bg-emerald-400/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-200 transition-colors hover:bg-emerald-400/20"
+                  >
+                    Heckle 2
+                  </button>
+                </>
+              ) : null}
               {phase === "live" ? (
                 <button
                   type="button"

@@ -27,6 +27,7 @@ from app.routers.sessions import session_state
 from app.services.elevenlabs_voice import synthesize
 from app.services.filler_detector import detect_empty_phrases, detect_fillers
 from app.services.heckle import (
+    SCRIPTED_HECKLES,
     SCRIPTED_VOICE_CACHE,
     find_scripted_by_similarity,
     find_scripted_heckle,
@@ -415,4 +416,47 @@ async def heckle(
         text=text,
         voice_b64=voice_b64,
         silent=False,
+    )
+
+
+# ─── Manual scripted-heckle trigger (demo backup) ─────────────────────────
+
+
+class ScriptedHeckleReq(BaseModel):
+    """Manual fire of a specific scripted beat by id, used as a demo
+    fallback when the keyword/embedding match doesn't catch the
+    speaker's phrasing."""
+
+    rule_id: str
+
+
+@router.post(
+    "/sessions/{session_id}/heckle/scripted",
+    response_model=TriggeredHeckle,
+)
+async def fire_scripted_heckle(
+    session_id: str,
+    req: ScriptedHeckleReq,
+    user_id: str = Depends(get_user_id),
+) -> TriggeredHeckle:
+    rule = next((r for r in SCRIPTED_HECKLES if r["id"] == req.rule_id), None)
+    if rule is None:
+        raise HTTPException(404, f"unknown rule_id: {req.rule_id}")
+
+    voice_b64 = SCRIPTED_VOICE_CACHE.get(req.rule_id)
+    if not voice_b64:
+        voice_b64 = await synthesize(rule["text"], rule["judge_id"])
+        if voice_b64:
+            SCRIPTED_VOICE_CACHE[req.rule_id] = voice_b64
+    if voice_b64 is None:
+        logger.warning(
+            "[heckle/scripted] ElevenLabs returned no audio for rule=%s", req.rule_id
+        )
+
+    return TriggeredHeckle(
+        judge_id=rule["judge_id"],
+        judge_name=_JUDGE_NAME[rule["judge_id"]],
+        text=rule["text"],
+        voice_b64=voice_b64,
+        rule_id=req.rule_id,
     )
