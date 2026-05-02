@@ -220,15 +220,15 @@ function VisualGaze() {
         {/* eyes */}
         <circle cx="-22" cy="-12" r="3" fill="white" />
         <circle cx="22" cy="-12" r="3" fill="white" />
-        <circle cx="-22" cy="-12" r="1.4" fill="oklch(0.74 0.15 195)" />
-        <circle cx="22" cy="-12" r="1.4" fill="oklch(0.74 0.15 195)" />
+        <circle cx="-22" cy="-12" r="1.4" fill="white" />
+        <circle cx="22" cy="-12" r="1.4" fill="white" />
         {/* gaze rays */}
         <line
           x1="-22"
           y1="-12"
           x2="-100"
           y2="-160"
-          stroke="oklch(0.74 0.15 195)"
+          stroke="white"
           strokeWidth="1"
           strokeDasharray="2 4"
           opacity="0.6"
@@ -238,7 +238,7 @@ function VisualGaze() {
           y1="-12"
           x2="100"
           y2="-160"
-          stroke="oklch(0.74 0.15 195)"
+          stroke="white"
           strokeWidth="1"
           strokeDasharray="2 4"
           opacity="0.6"
@@ -282,7 +282,7 @@ function VisualWaveform() {
         </span>
         <span className="text-[13px] text-white/85">
           음 그러니까 저희가{" "}
-          <span className="text-[oklch(0.74_0.15_195)] underline decoration-wavy decoration-1 underline-offset-4">
+          <span className="text-white/85 underline decoration-white/45 decoration-wavy decoration-1 underline-offset-4">
             혁신적인
           </span>{" "}
           기술로

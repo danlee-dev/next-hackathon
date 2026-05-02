@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.agents.graph import run_analysis
 from app.core.supabase import (
@@ -14,17 +15,16 @@ from app.core.supabase import (
 )
 from app.deps import get_user_id
 from app.models.schemas import (
-    CreateSessionReq,
     CreateSessionRes,
     FinalizeReq,
     FinalizeRes,
 )
+from app.services.pdf_extract import extract_pdf_text
 from app.services.scoring import all_scores
 
 router = APIRouter()
 
 # In-memory per-session aggregator (audio + visual rolling state).
-# 해커톤 수준에선 충분하다. 프로덕션이면 Redis 등으로 대체.
 _SESSION_STATE: dict[str, dict] = {}
 
 
@@ -43,26 +43,55 @@ def session_state(session_id: str) -> dict:
             "visual_last": {},
             "audio_chunks_chars": 0,
             "audio_chunks_seconds": 0.0,
+            "context": {
+                "title": "",
+                "script": "",
+                "deck_text": "",
+            },
         },
     )
     return s
 
 
 @router.post("/sessions", response_model=CreateSessionRes)
-def create_session(req: CreateSessionReq, user_id: str = Depends(get_user_id)) -> CreateSessionRes:
-    row = insert_session(user_id=user_id, title=req.title)
+async def create_session(
+    title: str = Form("제목 없는 피칭"),
+    script: Optional[str] = Form(None),
+    judging_criteria: Optional[str] = Form(None),
+    deck: Optional[UploadFile] = File(None),
+    user_id: str = Depends(get_user_id),
+) -> CreateSessionRes:
+    deck_text = ""
+    if deck is not None:
+        try:
+            data = await deck.read()
+            deck_text = extract_pdf_text(data)
+        except Exception:
+            deck_text = ""
+
+    ctx = {
+        "title": title,
+        "script": (script or "")[:6000],
+        "deck_text": deck_text,
+        "judging_criteria": (judging_criteria or "")[:2000],
+    }
+
+    row = insert_session(user_id=user_id, title=title)
     if row is None:
-        # supabase 미연결 (DEMO) — 임시 in-memory id 발급
         from uuid import uuid4
 
         sid = str(uuid4())
-        session_state(sid)
+        s = session_state(sid)
+        s["context"] = ctx
         return CreateSessionRes(
             session_id=sid,
             started_at=datetime.now(timezone.utc).isoformat(),
         )
+    sid = row["id"]
+    s = session_state(sid)
+    s["context"] = ctx
     return CreateSessionRes(
-        session_id=row["id"],
+        session_id=sid,
         started_at=row.get("started_at") or datetime.now(timezone.utc).isoformat(),
     )
 
@@ -77,8 +106,9 @@ async def finalize(
     transcript = req.transcript or state.get("transcript", "")
     audio = state.get("audio_metrics_running", {})
     visual = state.get("visual_last", {})
+    context = state.get("context", {}) or {}
 
-    result = await run_analysis(transcript, audio, visual)
+    result = await run_analysis(transcript, audio, visual, context)
     content_eval = result.get("content_evaluation", {})
 
     merged_metrics = {
@@ -132,7 +162,6 @@ async def finalize(
 def get_report(session_id: str, user_id: str = Depends(get_user_id)) -> FinalizeRes:
     row = fetch_session(session_id)
     if row is None:
-        # demo / no DB — return synth
         raise HTTPException(status_code=404, detail="session not found")
     fb = row.get("llm_feedback") or {}
     return FinalizeRes(
