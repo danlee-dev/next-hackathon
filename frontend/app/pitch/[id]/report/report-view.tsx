@@ -14,17 +14,51 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trustColor, trustLabel } from "@/lib/utils";
 import type { FinalReport } from "@/types/pitch";
 import { ArrowRight, Repeat } from "lucide-react";
+import { generateDemoTimeline } from "@/lib/demo-simulator";
 
 interface Props {
   sessionId: string;
+  demoMode?: boolean;
 }
 
-export function ReportView({ sessionId }: Props) {
+export function ReportView({ sessionId, demoMode = false }: Props) {
   const store = useTrustStore();
   const [report, setReport] = useState<FinalReport | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (demoMode) {
+      // synthesize a polished demo report immediately
+      setReport({
+        session_id: sessionId,
+        trust_score: 78,
+        visual_score: 72,
+        audio_score: 81,
+        content_score: 75,
+        strengths: [
+          "음성 안정성 우수 — 피치 std 낮음",
+          "메시지 흐름 명확 — 문제 정의 → 해결 → 다음 단계",
+          "발표를 60초 안에 끝내는 페이스 컨트롤",
+        ],
+        weaknesses: [
+          "시선 응시 평균 58% — 카메라 정면 시간 더 필요",
+          "필러워드 분당 4.2회 — '음', '약간', '그러니까'",
+          "공허한 표현 1회 — '혁신적인'",
+        ],
+        action_items: [
+          "'약간' / '그러니까' 를 의도적인 1초 침묵으로 대체합니다.",
+          "슬라이드 전환 직후 2초간 카메라를 응시하는 습관을 만듭니다.",
+          "핵심 숫자 3개를 자료를 보지 않고 말하는 연습을 합니다.",
+        ],
+        judge_summaries: {
+          "judge-fact": "근거의 명확함은 좋으나 시장 규모 숫자가 약합니다.",
+          "judge-connect": "진정성이 느껴졌습니다. 시선만 더 잡아주세요.",
+          "judge-critical": "필러워드 4.2회/분. 다음 라운드는 2회 이하로.",
+        },
+      });
+      setLoading(false);
+      return;
+    }
     fetchReport(sessionId)
       .then((r) =>
         setReport({
@@ -126,10 +160,15 @@ export function ReportView({ sessionId }: Props) {
             data={
               store.timeline.length > 0
                 ? store.timeline
-                : Array.from({ length: 12 }).map((_, i) => ({
-                    ts_ms: i * 5000,
-                    trust: Math.max(40, report.trust_score + Math.sin(i / 2) * 12),
-                  }))
+                : (demoMode
+                    ? generateDemoTimeline(60_000)
+                    : Array.from({ length: 12 }).map((_, i) => ({
+                        ts_ms: i * 5000,
+                        trust: Math.max(
+                          40,
+                          report.trust_score + Math.sin(i / 2) * 12
+                        ),
+                      })))
             }
           />
         </Section>
