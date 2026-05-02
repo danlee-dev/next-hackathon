@@ -34,6 +34,12 @@ export function LandingChrome() {
         </Link>
         <nav className="flex items-center gap-5 sm:gap-6">
           <Link
+            href="/discover"
+            className="hidden font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/55 transition-colors hover:text-white sm:inline"
+          >
+            Discover
+          </Link>
+          <Link
             href="/dashboard"
             className="hidden font-mono text-[10.5px] uppercase tracking-[0.32em] text-white/55 transition-colors hover:text-white sm:inline"
           >
